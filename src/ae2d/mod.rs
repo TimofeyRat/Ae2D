@@ -1,5 +1,6 @@
-extern crate sdl2;
+extern crate glfw;
 
-pub mod window;
+pub mod render;
 pub mod math;
 pub mod sprite;
+pub mod window;

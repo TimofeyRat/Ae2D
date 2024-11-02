@@ -1,1 +1,1 @@
-[Rust-SDL2](https://docs.rs/sdl2/latest/sdl2/keyboard/struct.KeyboardState.html)
+[Rust-GLFW](https://docs.rs/glfw/latest/glfw)
