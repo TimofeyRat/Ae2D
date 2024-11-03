@@ -11,13 +11,8 @@ fn main()
 	spr.loadFromFile("res/tex/menuBG.png".to_string());
 	spr.setTextureRect(sdl2::rect::Rect::new(0, 0, 144, 64));
 
-	let size = spr.getTextureRect().size();
 
-	spr.setScale(math::Point
-	{
-		x: Window::getSize().x / size.0 as f64,
-		y: Window::getSize().y / size.1 as f64
-	});
+	spr.scaleToSize(Window::getSize());
 
 	while Window::isOpen()
 	{
