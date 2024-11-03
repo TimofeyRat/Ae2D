@@ -8,7 +8,8 @@ pub struct Window
 	canvas: Option<sdl2::render::WindowCanvas>,
 	events: Option<sdl2::EventPump>,
 	running: bool,
-	clearColor: sdl2::pixels::Color
+	clearColor: sdl2::pixels::Color,
+	textureCreator: Option<sdl2::render::TextureCreator<sdl2::video::WindowContext>>
 }
 
 impl Window
@@ -23,7 +24,8 @@ impl Window
 			canvas: None,
 			events: None,
 			running: true,
-			clearColor: sdl2::pixels::Color::BLACK
+			clearColor: sdl2::pixels::Color::BLACK,
+			textureCreator: None
 		}
 	}
 
@@ -50,6 +52,7 @@ impl Window
 			.unwrap());
 		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
 		i.events = Some(i.context.event_pump().unwrap());
+		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
 	}
 
 	pub fn update()
@@ -71,10 +74,28 @@ impl Window
 		i.canvas.as_mut().unwrap().set_draw_color(i.clearColor);
 		i.canvas.as_mut().unwrap().clear();
 	}
+	
+	pub fn getTC() -> &'static mut sdl2::render::TextureCreator<sdl2::video::WindowContext>
+	{
+		Window::getInstance().textureCreator.as_mut().unwrap()
+	}
+
+	pub fn draw(spr: &mut super::render::Sprite)
+	{
+		spr.draw(Window::getInstance().canvas.as_mut().unwrap());
+	}
+
+	pub fn getSize() -> math::Point
+	{
+		let size = Window::getInstance().window.as_mut().unwrap().size();
+		math::Point
+		{
+			x: size.0 as f64,
+			y: size.1 as f64
+		}
+	}
 
 	pub fn display() { Window::getInstance().canvas.as_mut().unwrap().present(); }
 	pub fn isOpen() -> bool { Window::getInstance().running }
 	pub fn close() { Window::getInstance().running = false; }
-
-	pub fn getCanvas() -> &'static mut sdl2::render::WindowCanvas { Window::getInstance().canvas.as_mut().unwrap() }
 }

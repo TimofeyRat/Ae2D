@@ -6,7 +6,7 @@ pub struct Vector { length: f64, angle: f64 }
 impl Point
 {
 	pub fn zero() -> Point { Point { x: 0.0, y: 0.0 } }
-	pub fn from_num(x: f64) -> Point { Point { x: x, y: x} }
+	pub fn num(x: f64) -> Point { Point { x: x, y: x} }
 	pub fn add(&mut self, x: Point) -> &mut Point { self.x += x.x; self.y += x.y; self }
 	pub fn subtract(&mut self, x: Point) -> &mut Point { self.x -= x.x; self.y -= x.y; self }
 	pub fn multiply(&mut self, x: Point) -> &mut Point { self.x *= x.x; self.y *= x.y; self }

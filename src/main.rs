@@ -1,27 +1,30 @@
 #![allow(dead_code, non_snake_case, non_upper_case_globals)]
 mod ae2d;
 
-use ae2d::{window::Window, math};
-use sdl2::image::LoadTexture;
-
+use ae2d::{window::Window, math, render};
 
 fn main()
 {
 	Window::create(math::Point { x: 512.0, y: 288.0 }, "Ae2D".to_string());
 
-	let c = Window::getCanvas();
-	let tc = c.texture_creator();
+	let mut spr = render::Sprite::new();
+	spr.loadFromFile("res/tex/menuBG.png".to_string());
+	spr.setTextureRect(sdl2::rect::Rect::new(0, 0, 144, 64));
 
-	let s = tc.load_texture(sdl2::filesystem::base_path().unwrap() + "res/tex/menuBG.png").unwrap();
+	let size = spr.getTextureRect().size();
+
+	spr.setScale(math::Point
+	{
+		x: Window::getSize().x / size.0 as f64,
+		y: Window::getSize().y / size.1 as f64
+	});
 
 	while Window::isOpen()
 	{
 		Window::update();
 
 		Window::clear();
-
-		let _ = c.copy(&s, None, sdl2::rect::Rect::new(0, 0, 100, 100));
-
+		Window::draw(&mut spr);
 		Window::display();
 	}
 }
