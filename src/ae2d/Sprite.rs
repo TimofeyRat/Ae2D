@@ -9,7 +9,8 @@ pub struct Sprite<'a>
 	texRect: sdl2::rect::Rect,
 	scale: Point,
 	position: Point,
-	texSize: Point
+	texSize: Point,
+	animated: bool
 }
 
 impl<'a> Sprite<'a>
@@ -22,10 +23,11 @@ impl<'a> Sprite<'a>
 			texRect: sdl2::rect::Rect::new(0, 0, 0, 0),
 			scale: Point::num(1.0),
 			position: Point::zero(),
-			texSize: Point::zero()
+			texSize: Point::zero(),
+			animated: false
 		}
 	}
-	pub fn loadFromFile(&mut self, path: String)
+	pub fn loadTexture(&mut self, path: String)
 	{
 		let res = Window::getTC().load_texture(sdl2::filesystem::base_path().unwrap() + &path.clone());
 		self.tex = if res.is_ok() { Some(res.unwrap()) } else { println!("Failed to load texture {}", path.clone().as_str()); None };
@@ -33,21 +35,29 @@ impl<'a> Sprite<'a>
 		let query = self.tex.as_mut().unwrap().query();
 		self.texSize = Point { x: query.clone().width as f64, y: query.clone().height as f64 };
 		self.texRect = sdl2::rect::Rect::new(0, 0, query.clone().width, query.height);
+		self.animated = false;
 	}
 
 	pub fn draw(&mut self, canvas: &mut sdl2::render::WindowCanvas)
 	{
-		if self.tex.is_none() { return; }
-		let _ = canvas.copy(
+		if self.animated
+		{
+			// TODO: Animation
+		}
+		else
+		{
+			if self.tex.is_none() { return; }
+			canvas.copy(
 			self.tex.as_ref().unwrap(),
 			self.texRect,
 			sdl2::rect::Rect::new(
-				self.position.x as i32,
-				self.position.y as i32,
-				(self.texRect.width() as f64 * self.scale.x) as u32,
-				(self.texRect.height() as f64 * self.scale.y) as u32
-			)
-		);
+					self.position.x as i32,
+					self.position.y as i32,
+					(self.texRect.width() as f64 * self.scale.x) as u32,
+					(self.texRect.height() as f64 * self.scale.y) as u32
+				)
+			);
+		}
 	}
 
 	pub fn getTextureSize(&mut self) -> Point

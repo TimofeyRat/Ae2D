@@ -85,6 +85,14 @@ impl Window
 		spr.draw(Window::getInstance().canvas.as_mut().unwrap());
 	}
 
+	pub fn setSize(size: Point)
+	{
+		Window::getInstance().window.as_mut().unwrap().set_size(
+			size.x as u32,
+			size.y as u32
+		);
+	}
+
 	pub fn getSize() -> Point
 	{
 		let size = Window::getInstance().window.as_mut().unwrap().size();
