@@ -1,4 +1,4 @@
-pub mod render;
-pub mod math;
-pub mod sprite;
-pub mod window;
+pub mod Point;
+pub mod Vector;
+pub mod Window;
+pub mod Sprite;

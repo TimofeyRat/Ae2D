@@ -1,13 +1,13 @@
 #![allow(dead_code, non_snake_case, non_upper_case_globals)]
 mod ae2d;
 
-use ae2d::{window::Window, math, render};
+use ae2d::{Window::Window, Point, Sprite};
 
 fn main()
 {
-	Window::create(math::Point { x: 512.0, y: 288.0 }, "Ae2D".to_string());
+	Window::create(Point::Point { x: 512.0, y: 288.0 }, "Ae2D".to_string());
 
-	let mut spr = render::Sprite::new();
+	let mut spr = Sprite::Sprite::new();
 	spr.loadFromFile("res/tex/menuBG.png".to_string());
 	spr.setTextureRect(sdl2::rect::Rect::new(0, 0, 144, 64));
 
