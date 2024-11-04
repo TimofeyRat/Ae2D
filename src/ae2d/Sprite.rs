@@ -1,15 +1,15 @@
 use sdl2::image::LoadTexture;
 
 use super::Window::Window;
-use super::Point;
+use super::math::Point::Point;
 
 pub struct Sprite<'a>
 {
 	tex: Option<sdl2::render::Texture<'a>>,
 	texRect: sdl2::rect::Rect,
-	scale: Point::Point,
-	position: Point::Point,
-	texSize: Point::Point
+	scale: Point,
+	position: Point,
+	texSize: Point
 }
 
 impl<'a> Sprite<'a>
@@ -20,9 +20,9 @@ impl<'a> Sprite<'a>
 		{
 			tex: None,
 			texRect: sdl2::rect::Rect::new(0, 0, 0, 0),
-			scale: Point::Point::num(1.0),
-			position: Point::Point::zero(),
-			texSize: Point::Point::zero()
+			scale: Point::num(1.0),
+			position: Point::zero(),
+			texSize: Point::zero()
 		}
 	}
 	pub fn loadFromFile(&mut self, path: String)
@@ -31,7 +31,7 @@ impl<'a> Sprite<'a>
 		self.tex = if res.is_ok() { Some(res.unwrap()) } else { println!("Failed to load texture {}", path.clone().as_str()); None };
 		if self.tex.is_none() { return; }
 		let query = self.tex.as_mut().unwrap().query();
-		self.texSize = Point::Point { x: query.clone().width as f64, y: query.clone().height as f64 };
+		self.texSize = Point { x: query.clone().width as f64, y: query.clone().height as f64 };
 		self.texRect = sdl2::rect::Rect::new(0, 0, query.clone().width, query.height);
 	}
 
@@ -50,19 +50,19 @@ impl<'a> Sprite<'a>
 		);
 	}
 
-	pub fn getTextureSize(&mut self) -> Point::Point
+	pub fn getTextureSize(&mut self) -> Point
 	{
 		let query = self.tex.as_mut().unwrap().query();
-		Point::Point
+		Point
 		{
 			x: query.clone().width as f64,
 			y: query.height as f64
 		}
 	}
 
-	pub fn scaleToSize(&mut self, size: Point::Point)
+	pub fn scaleToSize(&mut self, size: Point)
 	{
-		self.scale = Point::Point
+		self.scale = Point
 		{
 			x: size.x / self.texRect.clone().width() as f64,
 			y: size.y / self.texRect.clone().height() as f64
@@ -71,8 +71,8 @@ impl<'a> Sprite<'a>
 
 	pub fn setTextureRect(&mut self, r: sdl2::rect::Rect) { self.texRect = r; }
 	pub fn getTextureRect(&mut self) -> sdl2::rect::Rect { self.texRect }
-	pub fn setPosition(&mut self, pos: Point::Point) { self.position = pos; }
-	pub fn getPosiiton(&mut self) -> Point::Point { self.position }
-	pub fn setScale(&mut self, factor: Point::Point) { self.scale = factor; }
-	pub fn getScale(&mut self) -> Point::Point { self.scale }
+	pub fn setPosition(&mut self, pos: Point) { self.position = pos; }
+	pub fn getPosiiton(&mut self) -> Point { self.position }
+	pub fn setScale(&mut self, factor: Point) { self.scale = factor; }
+	pub fn getScale(&mut self) -> Point { self.scale }
 }

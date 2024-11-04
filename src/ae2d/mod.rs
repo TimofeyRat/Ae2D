@@ -1,4 +1,3 @@
-pub mod Point;
-pub mod Vector;
+pub mod math;
 pub mod Window;
 pub mod Sprite;

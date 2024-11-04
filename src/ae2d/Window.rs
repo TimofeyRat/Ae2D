@@ -1,4 +1,4 @@
-use super::Point;
+use super::math::Point::Point;
 
 pub struct Window
 {
@@ -40,7 +40,7 @@ impl Window
 		}
 	}
 
-	pub fn create(size: Point::Point, title: String)
+	pub fn create(size: Point, title: String)
 	{
 		let i = Window::getInstance();
 		i.video = Some(i.context.video().unwrap());
@@ -85,10 +85,10 @@ impl Window
 		spr.draw(Window::getInstance().canvas.as_mut().unwrap());
 	}
 
-	pub fn getSize() -> Point::Point
+	pub fn getSize() -> Point
 	{
 		let size = Window::getInstance().window.as_mut().unwrap().size();
-		Point::Point
+		Point
 		{
 			x: size.0 as f64,
 			y: size.1 as f64
