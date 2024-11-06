@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-gif = "0.13.1"
+json = "0.12.4"
 
 [dependencies.sdl2]
 version = "0.37.0"
