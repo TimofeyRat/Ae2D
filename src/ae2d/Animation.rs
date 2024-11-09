@@ -13,7 +13,9 @@ pub struct Animation
 	pub name: String,
 	pub frames: Vec<Frame>,
 	pub currentTime: f64,
-	pub currentFrame: usize
+	pub currentFrame: usize,
+	pub repeat: i32,
+	pub repeated: i32
 }
 
 impl Animation
@@ -22,8 +24,17 @@ impl Animation
 	{
 		if self.currentFrame >= self.frames.len()
 		{
-			self.currentFrame = self.frames.len() - 1;
-			return
+			if self.repeat == 0 || self.repeated < self.repeat - 1
+			{
+				self.currentFrame = 0;
+				self.currentTime = 0.0;
+				if self.repeat != 0 { self.repeated += 1; }
+			}
+			else
+			{
+				self.currentFrame = self.frames.len() - 1;
+				return
+			}
 		}
 		self.currentTime += Window::getDeltaTime();
 		if self.currentTime >= self.frames[self.currentFrame].duration
@@ -102,18 +113,27 @@ impl<'a> Animator<'a>
 				{
 					let name = String::from(anim.0);
 					let mut frames: Vec<Frame> = vec![];
-					
-					for frame in anim.1.members()
+					let mut repeat = 0;
+
+					for attr in anim.1.entries()
 					{
-						let mut f = Frame { id: 0, duration: 0.0 };
-						for args in frame.entries()
+						if attr.0 == "repeat" { repeat = attr.1.as_i32().unwrap(); }
+						if attr.0 == "frames"
 						{
-							if args.0 == "frame" { f.id = args.1.as_usize().unwrap(); }
-							if args.0 == "duration" { f.duration = args.1.as_f64().unwrap(); }
+							for frame in attr.1.members()
+							{
+								let mut f = Frame { id: 0, duration: 0.0 };
+								for args in frame.entries()
+								{
+									if args.0 == "frame" { f.id = args.1.as_usize().unwrap(); }
+									if args.0 == "duration" { f.duration = args.1.as_f64().unwrap(); }
+								}
+								frames.push(f);
+							}
 						}
-						frames.push(f);
 					}
-					self.anims.push(Animation { name, frames, currentFrame: 0, currentTime: 0.0 });
+					
+					self.anims.push(Animation { name, frames, currentFrame: 0, currentTime: 0.0, repeat, repeated: 0 });
 				}
 			}
 			else { println!("{}: {}", element.0, element.1); }

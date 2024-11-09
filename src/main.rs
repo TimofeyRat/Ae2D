@@ -19,8 +19,8 @@ fn main()
 	{
 		Window::update();
 
-		let angle = spr.getRotation();
-		spr.setRotation(angle + Window::getDeltaTime() * 180.0);
+		// let angle = spr.getRotation();
+		// spr.setRotation(angle + Window::getDeltaTime() * 180.0);
 
 		Window::clear();
 		Window::draw(&mut spr);

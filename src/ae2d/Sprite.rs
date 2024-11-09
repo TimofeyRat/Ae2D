@@ -63,10 +63,6 @@ impl<'a> Sprite<'a>
 		{
 			let anim = self.anim.getCurrentAnimation();
 			anim.update();
-			if anim.currentFrame >= anim.frames.len()
-			{
-				anim.currentFrame = 0;
-			}
 			let id = anim.getCurrentFrame().id;
 			let frame = self.anim.getFrame(id);
 			// print!("{:?}\r", frame);
