@@ -9,7 +9,11 @@ pub struct Window
 	events: Option<sdl2::EventPump>,
 	running: bool,
 	clearColor: sdl2::pixels::Color,
-	textureCreator: Option<sdl2::render::TextureCreator<sdl2::video::WindowContext>>
+	textureCreator: Option<sdl2::render::TextureCreator<sdl2::video::WindowContext>>,
+	deltaTime: f64,
+	currentTime: f64,
+	lastTime: f64,
+	timer: Option<sdl2::TimerSubsystem>
 }
 
 impl Window
@@ -25,7 +29,11 @@ impl Window
 			events: None,
 			running: true,
 			clearColor: sdl2::pixels::Color::BLACK,
-			textureCreator: None
+			textureCreator: None,
+			deltaTime: 0.0,
+			currentTime: 0.0,
+			lastTime: 0.0,
+			timer: None
 		}
 	}
 
@@ -53,11 +61,18 @@ impl Window
 		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
 		i.events = Some(i.context.event_pump().unwrap());
 		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
+		i.timer = Some(i.context.timer().unwrap());
+		i.lastTime = i.timer.as_mut().unwrap().performance_counter() as f64;
+		i.currentTime = i.lastTime;
 	}
 
 	pub fn update()
 	{
 		let i = Window::getInstance();
+
+		i.lastTime = i.currentTime;
+		i.currentTime = i.timer.as_mut().unwrap().performance_counter() as f64;
+		i.deltaTime = (i.currentTime - i.lastTime) / i.timer.as_mut().unwrap().performance_frequency() as f64;
 		for event in i.events.as_mut().unwrap().poll_iter()
 		{
 			match event
@@ -103,7 +118,9 @@ impl Window
 		}
 	}
 
+	pub fn setClearColor(clr: sdl2::pixels::Color) { Window::getInstance().clearColor = clr; }
 	pub fn display() { Window::getInstance().canvas.as_mut().unwrap().present(); }
 	pub fn isOpen() -> bool { Window::getInstance().running }
 	pub fn close() { Window::getInstance().running = false; }
+	pub fn getDeltaTime() -> f64 { Window::getInstance().deltaTime }
 }

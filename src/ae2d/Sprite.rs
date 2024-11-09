@@ -1,8 +1,6 @@
 use sdl2::image::LoadTexture;
 
-use super::Assets;
-use super::Window::Window;
-use super::math::Point::Point;
+use super::{Assets, math::Point::Point, Animation::*, Window::Window};
 
 pub struct Sprite<'a>
 {
@@ -14,6 +12,7 @@ pub struct Sprite<'a>
 	absolute_origin: Option<Point>,
 	relative_origin: Option<Point>,
 	texSize: Point,
+	anim: Animator<'a>,
 	animated: bool
 }
 
@@ -31,7 +30,8 @@ impl<'a> Sprite<'a>
 			absolute_origin: Some(Point::zero()),
 			relative_origin: None,
 			texSize: Point::zero(),
-			animated: false
+			animated: false,
+			anim: Animator::new()
 		}
 	}
 	pub fn loadTexture(&mut self, path: String)
@@ -43,23 +43,53 @@ impl<'a> Sprite<'a>
 		self.texSize = Point { x: query.clone().width as f64, y: query.clone().height as f64 };
 		self.texRect = sdl2::rect::Rect::new(0, 0, query.clone().width, query.height);
 		self.animated = false;
+		self.anim = Animator::new();
+	}
+
+	pub fn loadAnimator(&mut self, path: String)
+	{
+		self.texRect = sdl2::rect::Rect::new(0, 0, 0, 0);
+		self.anim.loadFromFile(path);
+		self.tex = None;
+		self.animated = true;
 	}
 
 	pub fn draw(&mut self, canvas: &mut sdl2::render::WindowCanvas)
 	{
+		// canvas.set_scale(self.scale.x.abs() as f32, self.scale.y.abs() as f32);
+		let origin = self.getOrigin() * self.scale;
+
 		if self.animated
 		{
-			// TODO: Animation
+			let anim = self.anim.getCurrentAnimation();
+			anim.update();
+			if anim.currentFrame >= anim.frames.len()
+			{
+				anim.currentFrame = 0;
+			}
+			let id = anim.getCurrentFrame().id;
+			let frame = self.anim.getFrame(id);
+			// print!("{:?}\r", frame);
+			// std::io::stdout().flush();
+			canvas.copy_ex(
+				self.anim.texture.as_ref().unwrap(),
+				frame,
+				sdl2::rect::Rect::new(
+					self.position.x as i32 - origin.x as i32,
+					self.position.y as i32 - origin.y as i32,
+					(frame.width() as f64 * self.scale.x) as u32,
+					(frame.height() as f64 * self.scale.y) as u32
+				),
+				self.rotation,
+				sdl2::rect::Point::new(origin.x as i32, origin.y as i32),
+				self.scale.x < 0.0,
+				self.scale.y < 0.0
+			);
 		}
 		else
 		{
 			if self.tex.is_none() { return; }
 
-			let origin =
-				if self.absolute_origin.is_some(){ self.absolute_origin.unwrap() }
-				else { *self.relative_origin.unwrap().multiply(Point { x: self.texRect.width() as f64, y: self.texRect.height() as f64 }) };
-
-			canvas.set_scale(self.scale.x.abs() as f32, self.scale.y.abs() as f32);
 			canvas.copy_ex(
 				self.tex.as_ref().unwrap(),
 				self.texRect,
@@ -89,11 +119,53 @@ impl<'a> Sprite<'a>
 
 	pub fn scaleToSize(&mut self, size: Point)
 	{
+		let bounds = if self.animated
+		{
+			Point
+			{
+				x: self.anim.getCurrentFrame().clone().width() as f64,
+				y: self.anim.getCurrentFrame().clone().height() as f64
+			}
+		}
+		else
+		{
+			Point
+			{
+				x: self.texRect.clone().width() as f64,
+				y: self.texRect.clone().height() as f64
+			}
+		};
+
 		self.scale = Point
 		{
-			x: size.x / self.texRect.clone().width() as f64,
-			y: size.y / self.texRect.clone().height() as f64
+			x: size.x / bounds.x,
+			y: size.y / bounds.y
 		};
+	}
+	
+	pub fn getOrigin(&mut self) -> Point
+	{
+		if self.absolute_origin.is_some() { self.absolute_origin.unwrap() }
+		else
+		{
+			let bounds = if self.animated
+			{
+				Point
+				{
+					x: self.anim.getCurrentFrame().clone().width() as f64,
+					y: self.anim.getCurrentFrame().clone().height() as f64
+				}
+			}
+			else
+			{
+				Point
+				{
+					x: self.texRect.clone().width() as f64,
+					y: self.texRect.clone().height() as f64
+				}
+			};
+			bounds * self.relative_origin.unwrap()
+		}
 	}
 
 	pub fn setTextureRect(&mut self, r: sdl2::rect::Rect) { self.texRect = r; }
@@ -106,9 +178,4 @@ impl<'a> Sprite<'a>
 	pub fn getRotation(&mut self) -> f64 { self.rotation }
 	pub fn setAbsoluteOrigin(&mut self, p: Point) { self.relative_origin = None; self.absolute_origin = Some(p); }
 	pub fn setRelativeOrigin(&mut self, p: Point) { self.absolute_origin = None; self.relative_origin = Some(p); }
-	pub fn getOrigin(&mut self) -> Point
-	{
-		if self.absolute_origin.is_some() { self.absolute_origin.unwrap() }
-		else { self.relative_origin.unwrap() }
-	}
 }
