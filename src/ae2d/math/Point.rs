@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub, AddAssign, DivAssign, MulAssign, SubAssign};
 
 #[derive(Clone, Copy)]
 pub struct Point { 
@@ -39,6 +39,42 @@ impl Div for Point
 	fn div(self, rhs: Self) -> Self::Output
 	{
 		Point { x: self.x / rhs.x, y: self.y / rhs.y }
+	}
+}
+
+impl AddAssign for Point
+{
+	fn add_assign(&mut self, rhs: Self)
+	{
+		self.x += rhs.x;
+		self.y += rhs.y;
+	}
+}
+
+impl SubAssign for Point
+{
+	fn sub_assign(&mut self, rhs: Self)
+	{
+		self.x -= rhs.x;
+		self.y -= rhs.y;
+	}
+}
+
+impl MulAssign for Point
+{
+	fn mul_assign(&mut self, rhs: Self)
+	{
+		self.x *= rhs.x;
+		self.y *= rhs.y;
+	}
+}
+
+impl DivAssign for Point
+{
+	fn div_assign(&mut self, rhs: Self)
+	{
+		self.x /= rhs.x;
+		self.y /= rhs.y;
 	}
 }
 

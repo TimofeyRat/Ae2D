@@ -164,6 +164,9 @@ impl<'a> Sprite<'a>
 		}
 	}
 
+	pub fn moveBy(&mut self, p: Point) { self.position += p; }
+	pub fn rotate(&mut self, angle: f64) { self.rotation += angle; }
+	pub fn scale(&mut self, scale: Point) { self.scale += scale; }
 	pub fn setTextureRect(&mut self, r: sdl2::rect::Rect) { self.texRect = r; }
 	pub fn getTextureRect(&mut self) -> sdl2::rect::Rect { self.texRect }
 	pub fn setPosition(&mut self, pos: Point) { self.position = pos; }

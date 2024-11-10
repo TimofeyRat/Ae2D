@@ -1,5 +1,42 @@
 use super::math::Point::Point;
 
+#[derive(Clone, Copy)]
+pub enum KeyAction
+{
+	Pressed = 0,
+	Released = 1,
+	PressedRepeat = 2,
+	ReleasedRepeat = 3
+}
+
+impl PartialEq for KeyAction
+{
+	fn eq(&self, other: &Self) -> bool
+	{
+		*self as i32 == *other as i32
+	}
+	fn ne(&self, other: &Self) -> bool
+	{
+		*self as i32 != *other as i32
+	}
+}
+
+#[derive(Clone, Copy)]
+pub struct KeyEvent
+{
+	pub key: sdl2::keyboard::Scancode,
+	pub mods: sdl2::keyboard::Mod,
+	pub action: KeyAction
+}
+
+#[derive(Clone, Copy)]
+pub struct MouseEvent
+{
+	pub btn: sdl2::mouse::MouseButton,
+	pub clicks: u8,
+	pub pos: Point
+}
+
 pub struct Window
 {
 	context: sdl2::Sdl,
@@ -13,7 +50,9 @@ pub struct Window
 	deltaTime: f64,
 	currentTime: f64,
 	lastTime: f64,
-	timer: Option<sdl2::TimerSubsystem>
+	timer: Option<sdl2::TimerSubsystem>,
+	keyEvent: Option<KeyEvent>,
+	mouseEvent: Option<MouseEvent>
 }
 
 impl Window
@@ -33,7 +72,9 @@ impl Window
 			deltaTime: 0.0,
 			currentTime: 0.0,
 			lastTime: 0.0,
-			timer: None
+			timer: None,
+			keyEvent: None,
+			mouseEvent: None
 		}
 	}
 
@@ -69,6 +110,8 @@ impl Window
 	pub fn update()
 	{
 		let i = Window::getInstance();
+		i.keyEvent = None;
+		i.mouseEvent = None;
 
 		i.lastTime = i.currentTime;
 		i.currentTime = i.timer.as_mut().unwrap().performance_counter() as f64;
@@ -78,6 +121,42 @@ impl Window
 			match event
 			{
 				sdl2::event::Event::Quit {..} => { i.running = false; }
+				sdl2::event::Event::KeyDown { scancode, keymod, repeat, .. } =>
+				{
+					i.keyEvent = Some(KeyEvent
+					{
+						key: scancode.unwrap(),
+						mods: keymod,
+						action: if repeat { KeyAction::PressedRepeat } else { KeyAction::Pressed }
+					});
+				},
+				sdl2::event::Event::KeyUp { scancode, keymod, repeat, .. } =>
+				{
+					i.keyEvent = Some(KeyEvent
+					{
+						key: scancode.unwrap(),
+						mods: keymod,
+						action: if repeat { KeyAction::ReleasedRepeat } else { KeyAction::Released }
+					});
+				},
+				sdl2::event::Event::MouseButtonDown { mouse_btn, clicks, x, y, .. } =>
+				{
+					i.mouseEvent = Some(MouseEvent
+					{
+						btn: mouse_btn,
+						clicks,
+						pos: Point{ x: x as f64, y: y as f64 }
+					});
+				},
+				sdl2::event::Event::MouseButtonUp { mouse_btn, x, y, .. } =>
+				{
+					i.mouseEvent = Some(MouseEvent
+					{
+						btn: mouse_btn,
+						clicks: 0,
+						pos: Point{ x: x as f64, y: y as f64 }
+					});
+				}
 				_ => {}
 			}
 		}
@@ -118,6 +197,18 @@ impl Window
 		}
 	}
 
+	pub fn isKeyPressed(key: sdl2::keyboard::Scancode) -> bool
+	{
+		Window::getInstance().events.as_mut().unwrap().keyboard_state().is_scancode_pressed(key)
+	}
+
+	pub fn isMousePressed(btn: sdl2::mouse::MouseButton) -> bool
+	{
+		Window::getInstance().events.as_mut().unwrap().mouse_state().is_mouse_button_pressed(btn)
+	}
+
+	pub fn getKeyEvent() -> Option<KeyEvent> { Window::getInstance().keyEvent }
+	pub fn getMouseEvent() -> Option<MouseEvent> { Window::getInstance().mouseEvent }
 	pub fn setClearColor(clr: sdl2::pixels::Color) { Window::getInstance().clearColor = clr; }
 	pub fn display() { Window::getInstance().canvas.as_mut().unwrap().present(); }
 	pub fn isOpen() -> bool { Window::getInstance().running }
