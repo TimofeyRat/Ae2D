@@ -1,1 +1,0 @@
-[Rust-GLFW](https://docs.rs/glfw/latest/glfw)
