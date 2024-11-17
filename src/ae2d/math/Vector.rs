@@ -4,8 +4,8 @@ use super::Point::Point;
 
 pub struct Vector 
 { 
-	length: f64, 
-	angle: f64 
+	pub length: f64, 
+	pub angle: f64
 }
 
 impl Vector
@@ -33,15 +33,5 @@ impl Vector
 	pub fn normalize(&mut self) -> Vector 
 	{
 		Vector {angle: self.angle, length: 1.0}
-	}
-
-	pub fn set_angle(&mut self, angle: f64) 
-	{
-		self.angle = angle;
-	}
-
-	pub fn set_length(&mut self, length: f64) 
-	{
-		self.length = length;
 	}
 }

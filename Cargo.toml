@@ -9,4 +9,4 @@ json = "0.12.4"
 
 [dependencies.sdl2]
 version = "0.37.0"
-features = ["image"]
+features = ["image", "ttf"]

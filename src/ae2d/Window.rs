@@ -52,7 +52,8 @@ pub struct Window
 	lastTime: f64,
 	timer: Option<sdl2::TimerSubsystem>,
 	keyEvent: Option<KeyEvent>,
-	mouseEvent: Option<MouseEvent>
+	mouseEvent: Option<MouseEvent>,
+	ttfContext: sdl2::ttf::Sdl2TtfContext
 }
 
 impl Window
@@ -74,7 +75,8 @@ impl Window
 			lastTime: 0.0,
 			timer: None,
 			keyEvent: None,
-			mouseEvent: None
+			mouseEvent: None,
+			ttfContext: sdl2::ttf::init().expect("Failed to initialize TTF")
 		}
 	}
 
@@ -275,6 +277,7 @@ impl Window
 		Window::getInstance().events.as_mut().unwrap().mouse_state().is_mouse_button_pressed(btn)
 	}
 
+	pub fn getTTF() -> &'static mut sdl2::ttf::Sdl2TtfContext { &mut Window::getInstance().ttfContext }
 	pub fn getKeyEvent() -> Option<KeyEvent> { Window::getInstance().keyEvent }
 	pub fn getMouseEvent() -> Option<MouseEvent> { Window::getInstance().mouseEvent }
 	pub fn setClearColor(clr: sdl2::pixels::Color) { Window::getInstance().clearColor = clr; }
