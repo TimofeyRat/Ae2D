@@ -70,22 +70,9 @@ impl<'a> Animator<'a>
 
 	pub fn loadFromFile(&mut self, path: String)
 	{
-		let code = Assets::readFile(path.clone());
-		if code.is_none()
-		{
-			println!("Failed to open file {}", path.clone());
-			return;
-		}
-		
-		let parsedRes = json::parse(code.unwrap().as_str());
-		if parsedRes.is_err()
-		{
-			println!("Failed to parse json from {}: {}", path, parsedRes.err().unwrap());
-			return;
-		}
-
-		let parsed = parsedRes.unwrap();
-		for element in parsed.entries()
+		let f = Assets::readJSON(path);
+		if f.is_none() { return }
+		for element in f.unwrap().entries()
 		{
 			if element.0 == "texture"
 			{
@@ -178,11 +165,25 @@ impl<'a> Animator<'a>
 		}
 	}
 	
-	pub fn getCurrentAnimation(&mut self) -> &mut Animation { &mut self.anims[self.currentAnimation] }
-	pub fn getFrame(&mut self, id: usize) -> sdl2::rect::Rect { self.frames[id] }
+	pub fn getCurrentAnimation(&mut self) -> Option<&mut Animation>
+	{
+		if self.anims.len() == 0 { None }
+		else
+		{
+			Some(&mut self.anims[self.currentAnimation])
+		}
+	}
+
 	pub fn getCurrentFrame(&mut self) -> sdl2::rect::Rect
 	{
-		let id = self.getCurrentAnimation().getCurrentFrame().id;
-		self.frames[id]
+		let anim = self.getCurrentAnimation();
+		if anim.is_none() { sdl2::rect::Rect::new(0, 0, 0, 0) }
+		else
+		{
+			let id = anim.unwrap().getCurrentFrame().id;
+			self.frames[id]
+		}
 	}
+
+	pub fn getFrame(&mut self, id: usize) -> sdl2::rect::Rect { self.frames[id] }
 }

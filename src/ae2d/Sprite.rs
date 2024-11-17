@@ -61,9 +61,10 @@ impl<'a> Sprite<'a>
 
 		if self.animated
 		{
-			let anim = self.anim.getCurrentAnimation();
-			anim.update();
-			let id = anim.getCurrentFrame().id;
+			let mut anim = self.anim.getCurrentAnimation();
+			if anim.is_none() { return; }
+			anim.as_mut().unwrap().update();
+			let id = anim.unwrap().getCurrentFrame().id;
 			let frame = self.anim.getFrame(id);
 			// print!("{:?}\r", frame);
 			// std::io::stdout().flush();

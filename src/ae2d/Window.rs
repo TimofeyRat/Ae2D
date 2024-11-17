@@ -1,4 +1,4 @@
-use super::math::Point::Point;
+use super::{math::Point::Point, Assets};
 
 #[derive(Clone, Copy)]
 pub enum KeyAction
@@ -105,6 +105,74 @@ impl Window
 		i.timer = Some(i.context.timer().unwrap());
 		i.lastTime = i.timer.as_mut().unwrap().performance_counter() as f64;
 		i.currentTime = i.lastTime;
+	}
+
+	pub fn init()
+	{
+		let f = Assets::readJSON("res/global/config.json".to_string());
+		if f.is_none() { return }
+
+		let mut title = String::from("");
+		let mut size = Point::zero();
+		let mut style = String::from("");
+		let mut pos = Point::num(-127.0);
+		let mut ogl = false;
+
+		for section in f.unwrap().entries()
+		{
+			if section.0 == "init"
+			{
+				for attr in section.1.entries()
+				{
+					if attr.0 == "title" { title = attr.1.as_str().unwrap().to_string(); }
+					if attr.0 == "style" { style = attr.1.as_str().unwrap().to_string(); }
+					if attr.0 == "size"
+					{
+						for dim in attr.1.entries()
+						{
+							if dim.0 == "w" { size.x = dim.1.as_f64().unwrap(); }
+							if dim.0 == "h" { size.y = dim.1.as_f64().unwrap(); }
+						}
+					}
+				}
+			}
+			if section.0 == "optional"
+			{
+				for attr in section.1.entries()
+				{
+					if attr.0 == "position"
+					{
+						for dim in attr.1.entries()
+						{
+							if dim.0 == "x" { pos.x = dim.1.as_f64().unwrap(); }
+							if dim.0 == "y" { pos.y = dim.1.as_f64().unwrap(); }
+						}
+					}
+					if attr.0 == "OpenGL" { ogl = attr.1.as_bool().unwrap(); }
+				}
+			}
+			if section.0 == "custom" {}
+		}
+
+		let i = Window::getInstance();
+		i.video = Some(i.context.video().unwrap());
+		let mut builder = i.video.as_mut().unwrap()
+			.window(title.as_str(), size.x as u32, size.y as u32);
+
+		if pos != Point::num(-127.0) { builder.position(pos.x as i32, pos.y as i32); }
+		else { builder.position_centered(); }
+		if ogl { builder.opengl(); }
+		if style.as_str() == "resizable" { builder.resizable(); }
+		if style.as_str() == "borderless" { builder.borderless(); }
+		if style.as_str() == "fullscreen" { builder.fullscreen_desktop(); }
+
+		i.window = Some(builder.build().unwrap());
+		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
+		i.events = Some(i.context.event_pump().unwrap());
+		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
+		i.timer = Some(i.context.timer().unwrap());
+		i.lastTime = i.timer.as_mut().unwrap().performance_counter() as f64;
+		i.currentTime = i.lastTime + 1.0;
 	}
 
 	pub fn update()

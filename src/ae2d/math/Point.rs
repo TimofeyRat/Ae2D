@@ -78,6 +78,19 @@ impl DivAssign for Point
 	}
 }
 
+impl PartialEq for Point
+{
+	fn eq(&self, other: &Self) -> bool
+	{
+		self.x == other.x && self.y == other.y
+	}
+
+	fn ne(&self, other: &Self) -> bool
+	{
+		self.x != other.x || self.y != other.y
+	}
+}
+
 impl Point
 {
 	pub fn zero() -> Self
