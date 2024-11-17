@@ -1,9 +1,14 @@
-#[derive(Clone, Debug)]
+use super::Window::Window;
+
+#[derive(PartialEq)]
+pub enum Anchor  { Left, Center, Right, Top, Bottom }
+
 struct TextPart
 {
 	pub txt: String,
 	pub style: sdl2::ttf::FontStyle,
-	pub newline: bool
+	pub newline: bool,
+	pub clr: sdl2::pixels::Color,
 }
 
 impl TextPart
@@ -14,7 +19,8 @@ impl TextPart
 		{
 			newline: false,
 			style: sdl2::ttf::FontStyle::NORMAL,
-			txt: String::new()
+			txt: String::new(),
+			clr: sdl2::pixels::Color::RGBA(255, 255, 255, 255)
 		}
 	}
 }
@@ -22,7 +28,13 @@ impl TextPart
 pub struct Text<'a>
 {
 	font: Option<sdl2::ttf::Font<'a, 'a>>,
-	txt: Vec<TextPart>
+	txt: Vec<TextPart>,
+	prerendered: Option<sdl2::surface::Surface<'a>>,
+	anchorX: Anchor,
+	anchorY: Anchor,
+	rendered: Vec<Vec<sdl2::render::Texture<'a>>>,
+	lineWidth: Vec<f64>,
+	pub transform: super::math::Transformable::Transformable
 }
 
 impl<'a> Text<'a>
@@ -32,7 +44,13 @@ impl<'a> Text<'a>
 		Self
 		{
 			font: None,
-			txt: Vec::new()
+			txt: Vec::new(),
+			prerendered: None,
+			anchorX: Anchor::Left,
+			anchorY: Anchor::Top,
+			rendered: Vec::new(),
+			lineWidth: Vec::new(),
+			transform: super::math::Transformable::Transformable::new()
 		}
 	}
 
@@ -68,7 +86,7 @@ impl<'a> Text<'a>
 
 				if !part.txt.is_empty()
 				{
-					self.txt.push(part.clone());
+					self.txt.push(part);
 					part = TextPart::new();
 				}
 
@@ -91,6 +109,16 @@ impl<'a> Text<'a>
 					if el == "/" { part.style = part.style | sdl2::ttf::FontStyle::ITALIC; }
 					if el == "_" { part.style = part.style | sdl2::ttf::FontStyle::UNDERLINE; }
 					if el == "-" { part.style = part.style | sdl2::ttf::FontStyle::STRIKETHROUGH; }
+					if el.contains("clr")
+					{
+						part.clr = Window::getColor(
+							el.split("=")
+							.collect::<Vec<&str>>()
+							.get(1)
+							.unwrap()
+							.to_string()
+						);
+					}
 				}
 			}
 			else if c == "\n"
@@ -104,10 +132,85 @@ impl<'a> Text<'a>
 			index += 1;
 		}
 		self.txt.push(part);
+
+		self.render();
 	}
 
-	pub fn draw(&mut self)
+	pub fn render(&mut self)
 	{
-		// 
+		if self.font.is_none() { return }
+		self.rendered.clear();
+		self.lineWidth.clear();
+
+		let mut line: Vec<sdl2::render::Texture<'a>> = Vec::new();
+		let mut lw = 0.0;
+
+		for part in self.txt.iter()
+		{
+			self.font.as_mut().unwrap().set_style(part.style);
+
+			let res = self.font.as_mut().unwrap().render(&part.txt).blended(part.clr);
+			if res.is_err()
+			{
+				println!("Failed to render text part \"{}\": {}", part.txt, res.err().unwrap());
+				return;
+			}
+			
+			lw += res.as_ref().unwrap().size().0 as f64;
+			line.push(res.unwrap().as_texture(Window::getTC()).expect("Failed to create texture while rendering text"));
+			if part.newline
+			{
+				self.rendered.push(line);
+				self.lineWidth.push(lw);
+				line = Vec::new();
+				lw = 0.0;
+			}
+		}
+		self.rendered.push(line);
+		self.lineWidth.push(lw);
+	}
+
+	pub fn draw(&mut self, canvas: &mut sdl2::render::WindowCanvas)
+	{
+		let mut lineNumber = 0;
+		let mut pos = self.transform.getPosition();
+		if self.anchorY == Anchor::Center
+		{
+			pos.y -= self.font.as_mut().unwrap().height() as f64 * (self.lineWidth.len() as f64 / 2.0);
+		}
+		if self.anchorY == Anchor::Bottom
+		{
+			pos.y -= self.font.as_mut().unwrap().height() as f64 * self.lineWidth.len() as f64;
+		}
+
+		for line in self.rendered.iter()
+		{
+			let lineWidth = self.lineWidth.get(lineNumber).unwrap();
+			if self.anchorX == Anchor::Center { pos.x -= lineWidth / 2.0; }
+			if self.anchorX == Anchor::Right { pos.x -= lineWidth; }
+			for element in line.iter()
+			{
+				let w = element.query().width;
+				let h = element.query().height;
+				canvas.copy(
+					element,
+					None,
+					sdl2::rect::Rect::new(
+						pos.x as i32, pos.y as i32,
+						w, h
+					)
+				);
+				pos.x += w as f64;
+			}
+			lineNumber += 1;
+			pos.y += self.font.as_mut().unwrap().height() as f64;
+			pos.x = Window::getSize().x / 2.0;
+		}
+	}
+
+	pub fn setAnchor(&mut self, x: Anchor, y: Anchor)
+	{
+		self.anchorX = x;
+		self.anchorY = y;
 	}
 }

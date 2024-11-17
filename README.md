@@ -4,14 +4,16 @@
 ## Development documentation
 
 - [Building the engine](#building)
-- [Initialization](#initializing-the-window)
+- [Initialization](#initialization)
 - [Animations](#writing-animations)
-- [Nice texts](#text-formatting)
+- [Nice texts](#nice-texts)
 
 ## Building
 Building is successful on Linux and Windows. On both platforrms you need Rust toolchain and SDL2 library with extra SDL2_image and SDL2_ttf package. Simply run `cargo build --release` and Cargo will do everything for you.
 
-## Initializing the window
+## Initialization
+
+### Setting up the engine
 The main config file is located at `res/global/config.json`. It contains following sections:
 - `init` - Variables needed to create window and start the engine;
 - `optional` - Variables that are not necessary for the engine, but can be used by it;
@@ -27,6 +29,9 @@ The main config file is located at `res/global/config.json`. It contains followi
 	},
 	"optional": {
 		"OpenGL": true
+	},
+	"custom": {
+		...
 	}
 }
 ```
@@ -43,7 +48,26 @@ The main config file is located at `res/global/config.json`. It contains followi
 - `OpenGL` - Should window use OpenGL? Can be `true` or `false`;
 - `position` - Position of the window. Should contain X and Y coordinates, i.e `{ "x"; 860, "y": 540 }`. If not provided, the window will appear in the center of the screen.
 
-## Text formatting
+### Color palette
+Ae2D lets you to [color](#text-coloring) your texts, but for that you need a palette. It can be defined in `res/global/colors.json` file as follows:
+
+```json
+{
+	"colorName": {
+		"r": 255,
+		"g": 255,
+		"b": 255,
+		"a": 255
+	},
+	...
+}
+```
+
+After that you can use these colors via their names.
+
+## Nice texts
+
+### Text formatting
 
 Ae2D allows you to style your texts via markdown:
 - `^()` - Regular text;
@@ -58,6 +82,10 @@ The text will contain the style that was written in front of it; In case you wan
 > This is ^(*)**a bold text, and** $(/)*this is an italic text.*
 
 > Are you ^(* _ /)***<ins>Sure</ins>*** ^()that you want to quit programming? ^(*)**Yes** ^(/)*No*
+
+### Text coloring
+
+When setting the style for text, you can also set the color for that text part: `^(clr=red)`. For more information about colors look [here](#color-palette). The default text color is white.
 
 ## Writing animations
 ### TODO

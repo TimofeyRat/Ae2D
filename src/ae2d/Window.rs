@@ -37,46 +37,55 @@ pub struct MouseEvent
 	pub pos: Point
 }
 
+pub struct Color
+{
+	name: String,
+	value: sdl2::pixels::Color
+}
+
 pub struct Window
 {
 	context: sdl2::Sdl,
-	video: Option<sdl2::VideoSubsystem>,
+	video: sdl2::VideoSubsystem,
 	window: Option<sdl2::video::Window>,
 	canvas: Option<sdl2::render::WindowCanvas>,
-	events: Option<sdl2::EventPump>,
+	events: sdl2::EventPump,
 	running: bool,
 	clearColor: sdl2::pixels::Color,
 	textureCreator: Option<sdl2::render::TextureCreator<sdl2::video::WindowContext>>,
 	deltaTime: f64,
 	currentTime: f64,
 	lastTime: f64,
-	timer: Option<sdl2::TimerSubsystem>,
+	timer: sdl2::TimerSubsystem,
 	keyEvent: Option<KeyEvent>,
 	mouseEvent: Option<MouseEvent>,
-	ttfContext: sdl2::ttf::Sdl2TtfContext
+	ttfContext: sdl2::ttf::Sdl2TtfContext,
+	palette: Vec<Color>
 }
 
 impl Window
 {
 	pub fn default() -> Window
 	{
+		let c = sdl2::init().expect("Failed to initialize SDL");
 		Window
 		{
-			context: sdl2::init().expect("Failed to initialize SDL2"),
-			video: None,
+			context: c.clone(),
+			video: c.video().unwrap(),
 			window: None,
 			canvas: None,
-			events: None,
+			events: c.event_pump().unwrap(),
 			running: true,
 			clearColor: sdl2::pixels::Color::BLACK,
 			textureCreator: None,
 			deltaTime: 0.0,
 			currentTime: 0.0,
 			lastTime: 0.0,
-			timer: None,
+			timer: c.timer().unwrap(),
 			keyEvent: None,
 			mouseEvent: None,
-			ttfContext: sdl2::ttf::init().expect("Failed to initialize TTF")
+			ttfContext: sdl2::ttf::init().expect("Failed to initialize TTF"),
+			palette: Vec::new()
 		}
 	}
 
@@ -94,18 +103,15 @@ impl Window
 	pub fn create(size: Point, title: String)
 	{
 		let i = Window::getInstance();
-		i.video = Some(i.context.video().unwrap());
-		i.window = Some(i.video.as_mut().unwrap()
+		i.window = Some(i.video
 			.window(title.as_str(), size.x as u32, size.y as u32)
 			.position_centered()
 			.opengl()
 			.build()
 			.unwrap());
 		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
-		i.events = Some(i.context.event_pump().unwrap());
 		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
-		i.timer = Some(i.context.timer().unwrap());
-		i.lastTime = i.timer.as_mut().unwrap().performance_counter() as f64;
+		i.lastTime = i.timer.performance_counter() as f64;
 		i.currentTime = i.lastTime;
 	}
 
@@ -157,9 +163,7 @@ impl Window
 		}
 
 		let i = Window::getInstance();
-		i.video = Some(i.context.video().unwrap());
-		let mut builder = i.video.as_mut().unwrap()
-			.window(title.as_str(), size.x as u32, size.y as u32);
+		let mut builder = i.video.window(title.as_str(), size.x as u32, size.y as u32);
 
 		if pos != Point::num(-127.0) { builder.position(pos.x as i32, pos.y as i32); }
 		else { builder.position_centered(); }
@@ -170,11 +174,36 @@ impl Window
 
 		i.window = Some(builder.build().unwrap());
 		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
-		i.events = Some(i.context.event_pump().unwrap());
 		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
-		i.timer = Some(i.context.timer().unwrap());
-		i.lastTime = i.timer.as_mut().unwrap().performance_counter() as f64;
+		i.lastTime = i.timer.performance_counter() as f64;
 		i.currentTime = i.lastTime + 1.0;
+
+		Window::loadColors();
+	}
+
+	pub fn loadColors()
+	{
+		let palette = &mut Window::getInstance().palette;
+
+		let f = Assets::readJSON("res/global/colors.json".to_string());
+		if f.is_none() { return; }
+
+		for color in f.unwrap().entries()
+		{
+			let mut c = Color
+			{
+				name: String::from(color.0),
+				value: sdl2::pixels::Color::RGBA(0, 0, 0, 0)
+			};
+			for v in color.1.entries()
+			{
+				if v.0 == "r" { c.value.r = v.1.as_u8().unwrap(); }
+				if v.0 == "g" { c.value.g = v.1.as_u8().unwrap(); }
+				if v.0 == "b" { c.value.b = v.1.as_u8().unwrap(); }
+				if v.0 == "a" { c.value.a = v.1.as_u8().unwrap(); }
+			}
+			palette.push(c);
+		}
 	}
 
 	pub fn update()
@@ -184,9 +213,9 @@ impl Window
 		i.mouseEvent = None;
 
 		i.lastTime = i.currentTime;
-		i.currentTime = i.timer.as_mut().unwrap().performance_counter() as f64;
-		i.deltaTime = (i.currentTime - i.lastTime) / i.timer.as_mut().unwrap().performance_frequency() as f64;
-		for event in i.events.as_mut().unwrap().poll_iter()
+		i.currentTime = i.timer.performance_counter() as f64;
+		i.deltaTime = (i.currentTime - i.lastTime) / i.timer.performance_frequency() as f64;
+		for event in i.events.poll_iter()
 		{
 			match event
 			{
@@ -269,12 +298,21 @@ impl Window
 
 	pub fn isKeyPressed(key: sdl2::keyboard::Scancode) -> bool
 	{
-		Window::getInstance().events.as_mut().unwrap().keyboard_state().is_scancode_pressed(key)
+		Window::getInstance().events.keyboard_state().is_scancode_pressed(key)
 	}
 
 	pub fn isMousePressed(btn: sdl2::mouse::MouseButton) -> bool
 	{
-		Window::getInstance().events.as_mut().unwrap().mouse_state().is_mouse_button_pressed(btn)
+		Window::getInstance().events.mouse_state().is_mouse_button_pressed(btn)
+	}
+
+	pub fn getColor(name: String) -> sdl2::pixels::Color
+	{
+		for c in Window::getInstance().palette.iter()
+		{
+			if c.name == name { return c.value }
+		}
+		sdl2::pixels::Color::RGBA(0, 0, 0,0)
 	}
 
 	pub fn getTTF() -> &'static mut sdl2::ttf::Sdl2TtfContext { &mut Window::getInstance().ttfContext }
@@ -285,4 +323,5 @@ impl Window
 	pub fn isOpen() -> bool { Window::getInstance().running }
 	pub fn close() { Window::getInstance().running = false; }
 	pub fn getDeltaTime() -> f64 { Window::getInstance().deltaTime }
+	pub fn getCanvas() -> &'static mut sdl2::render::WindowCanvas { Window::getInstance().canvas.as_mut().unwrap() }
 }

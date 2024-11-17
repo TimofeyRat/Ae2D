@@ -20,7 +20,7 @@ impl Vector
         Self { length: 0.0, angle: 0.0 }
     }
 
-	pub fn to_point(&mut self) -> Point
+	pub fn toPoint(self) -> Point
 	{
 		let a = f64::to_radians(self.angle);
 		Point
@@ -30,7 +30,7 @@ impl Vector
 		}
 	}
 
-	pub fn normalize(&mut self) -> Vector 
+	pub fn normalize(self) -> Vector 
 	{
 		Vector {angle: self.angle, length: 1.0}
 	}
