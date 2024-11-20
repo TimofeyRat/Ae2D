@@ -31,7 +31,7 @@ The main config file is located at `res/global/config.json`. It contains followi
 		"OpenGL": true
 	},
 	"custom": {
-		...
+	    "parameter": "value"
 	}
 }
 ```
@@ -58,8 +58,7 @@ Ae2D lets you to [color](#text-coloring) your texts, but for that you need a pal
 		"g": 255,
 		"b": 255,
 		"a": 255
-	},
-	...
+	}
 }
 ```
 
