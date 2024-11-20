@@ -15,10 +15,6 @@ impl PartialEq for KeyAction
 	{
 		*self as i32 == *other as i32
 	}
-	fn ne(&self, other: &Self) -> bool
-	{
-		*self as i32 != *other as i32
-	}
 }
 
 #[derive(Clone, Copy)]
@@ -60,7 +56,8 @@ pub struct Window
 	keyEvent: Option<KeyEvent>,
 	mouseEvent: Option<MouseEvent>,
 	ttfContext: sdl2::ttf::Sdl2TtfContext,
-	palette: Vec<Color>
+	palette: Vec<Color>,
+    gl: Option<sdl2::video::GLContext>
 }
 
 impl Window
@@ -85,7 +82,8 @@ impl Window
 			keyEvent: None,
 			mouseEvent: None,
 			ttfContext: sdl2::ttf::init().expect("Failed to initialize TTF"),
-			palette: Vec::new()
+			palette: Vec::new(),
+            gl: None
 		}
 	}
 
@@ -99,6 +97,18 @@ impl Window
 			INSTANCE.as_mut().expect("Window singleton is not initialized")
 		}
 	}
+
+    fn getGL() -> Option<u32>
+    {
+        for (index, item) in sdl2::render::drivers().enumerate()
+        {
+            if item.name == "opengl"
+            {
+                return Some(index as u32)
+            }
+        }
+        None
+    }
 
 	pub fn create(size: Point, title: String)
 	{
@@ -173,10 +183,19 @@ impl Window
 		if style.as_str() == "fullscreen" { builder.fullscreen_desktop(); }
 
 		i.window = Some(builder.build().unwrap());
-		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
+
+        let mut canvasBuilder = i.window.as_mut().unwrap().clone().into_canvas().accelerated();
+        if ogl { canvasBuilder = canvasBuilder.index(Window::getGL().unwrap()); }
+		i.canvas = Some(canvasBuilder.build().unwrap());
 		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
 		i.lastTime = i.timer.performance_counter() as f64;
 		i.currentTime = i.lastTime + 1.0;
+
+        if ogl
+        {
+            i.gl = Some(i.window.as_mut().unwrap().gl_create_context().unwrap());
+            gl::load_with(|name| i.video.gl_get_proc_address(name) as *const _);
+        }
 
 		Window::loadColors();
 	}
@@ -266,7 +285,14 @@ impl Window
 		let i = Window::getInstance();
 		i.canvas.as_mut().unwrap().set_draw_color(i.clearColor);
 		i.canvas.as_mut().unwrap().clear();
-	}
+        
+        unsafe
+        {
+            let c = Window::toGLcolor(i.clearColor);
+            gl::ClearColor(c.0, c.1, c.2, c.3);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+    }
 	
 	pub fn getTC() -> &'static mut sdl2::render::TextureCreator<sdl2::video::WindowContext>
 	{
@@ -315,13 +341,30 @@ impl Window
 		sdl2::pixels::Color::RGBA(0, 0, 0,0)
 	}
 
+    pub fn toGLcolor(clr: sdl2::pixels::Color) -> (f32, f32, f32, f32)
+    {
+        (
+            clr.r as f32 / 255.0,
+            clr.g as f32 / 255.0,
+            clr.b as f32 / 255.0,
+            clr.a as f32 / 255.0
+        )
+    }
+
+    pub fn display()
+    {
+        let i = Window::getInstance();
+        i.canvas.as_mut().unwrap().present();
+        i.window.as_mut().unwrap().gl_swap_window();
+    }
+
 	pub fn getTTF() -> &'static mut sdl2::ttf::Sdl2TtfContext { &mut Window::getInstance().ttfContext }
 	pub fn getKeyEvent() -> Option<KeyEvent> { Window::getInstance().keyEvent }
 	pub fn getMouseEvent() -> Option<MouseEvent> { Window::getInstance().mouseEvent }
 	pub fn setClearColor(clr: sdl2::pixels::Color) { Window::getInstance().clearColor = clr; }
-	pub fn display() { Window::getInstance().canvas.as_mut().unwrap().present(); }
 	pub fn isOpen() -> bool { Window::getInstance().running }
 	pub fn close() { Window::getInstance().running = false; }
 	pub fn getDeltaTime() -> f64 { Window::getInstance().deltaTime }
 	pub fn getCanvas() -> &'static mut sdl2::render::WindowCanvas { Window::getInstance().canvas.as_mut().unwrap() }
+    pub fn getContext() -> &'static mut sdl2::video::GLContext { Window::getInstance().gl.as_mut().unwrap() }
 }

@@ -37,7 +37,7 @@ fn main()
 		}
 
 		Window::clear();
-		txt.draw(&mut Window::getCanvas());
+		txt.draw(Window::getCanvas());
 		Window::display();
 	}
 }

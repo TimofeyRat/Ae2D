@@ -5,6 +5,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+gl = "0.14.0"
 json = "0.12.4"
 
 [dependencies.sdl2]
