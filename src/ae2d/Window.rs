@@ -193,7 +193,7 @@ impl Window
 			let mut c = Color
 			{
 				name: String::from(color.0),
-				value: sdl2::pixels::Color::RGBA(0, 0, 0, 0)
+				value: sdl2::pixels::Color::RGBA(0, 0, 0, 255)
 			};
 			for v in color.1.entries()
 			{
