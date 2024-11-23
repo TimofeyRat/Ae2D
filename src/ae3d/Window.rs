@@ -156,8 +156,12 @@ impl Window
 		}
 
 		let i = Window::getInstance();
+
+		let attr = i.video.gl_attr();
+		attr.set_context_profile(sdl2::video::GLProfile::Core);
+		attr.set_context_version(3, 3);
+
 		let mut builder = i.video.window(title.as_str(), size.x as u32, size.y as u32);
-		builder.opengl();
 
 		if pos != Point::num(-127.0) { builder.position(pos.x as i32, pos.y as i32); }
 		else { builder.position_centered(); }
@@ -165,21 +169,23 @@ impl Window
 		if style.as_str() == "borderless" { builder.borderless(); }
 		if style.as_str() == "fullscreen" { builder.fullscreen_desktop(); }
 
-		i.window = Some(builder.build().unwrap());
+		i.window = Some(builder.opengl().build().unwrap());
 
-        let canvasBuilder = i.window.as_mut().unwrap().clone().into_canvas().accelerated().index(Window::getGL().unwrap());
-		i.canvas = Some(canvasBuilder.build().unwrap());
-		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
+        // let canvasBuilder = i.window.as_mut().unwrap().clone().into_canvas().accelerated().index(Window::getGL().unwrap());
+		// i.canvas = Some(canvasBuilder.build().unwrap());
+		// i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
 		i.lastTime = i.timer.performance_counter() as f64;
 		i.currentTime = i.lastTime + 1.0;
 
 		i.gl = Some(i.window.as_mut().unwrap().gl_create_context().unwrap());
 		gl::load_with(|name| i.video.gl_get_proc_address(name) as *const _);
+		i.video.gl_set_swap_interval(sdl2::video::SwapInterval::VSync);
 		unsafe
 		{
-			gl::Enable(gl::DEPTH_TEST);
-			gl::DepthFunc(gl::LESS);
-			gl::Viewport(0, 0, size.x as i32, size.y as i32);
+			// gl::Enable(gl::DEPTH_TEST);
+			// gl::DepthFunc(gl::LESS);
+			let size = i.window.as_mut().unwrap().size();
+			gl::Viewport(0, 0, size.0 as i32, size.1 as i32);
 		}
 
 		Window::loadColors();
@@ -283,14 +289,12 @@ impl Window
 	pub fn clear()
 	{
 		let i = Window::getInstance();
-		i.canvas.as_mut().unwrap().set_draw_color(i.clearColor);
-		i.canvas.as_mut().unwrap().clear();
-        
+		
         unsafe
         {
             let c = Window::toGLcolor(i.clearColor);
             gl::ClearColor(c.0, c.1, c.2, c.3);
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
 	
@@ -354,7 +358,6 @@ impl Window
     pub fn display()
     {
         let i = Window::getInstance();
-        i.canvas.as_mut().unwrap().present();
         i.window.as_mut().unwrap().gl_swap_window();
     }
 

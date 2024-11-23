@@ -17,9 +17,8 @@ impl Shader
 		}
 	}
 
-	fn loadShader(p: String, vertex: bool) -> u32
+	fn compile(p: String, t: gl::types::GLenum) -> u32
 	{
-		let shader: u32;
 		let res = crate::ae3d::Assets::readFile(p.clone());
 		if res.is_none()
 		{
@@ -31,57 +30,77 @@ impl Shader
 
 		unsafe
 		{
-			shader = gl::CreateShader(if vertex { gl::VERTEX_SHADER } else { gl::FRAGMENT_SHADER });
+			let shader = gl::CreateShader(t);
 			gl::ShaderSource(
 				shader,
 				1,
-				&(code.clone().as_ptr() as *const i8),
+				&(code.as_ptr().cast()),
 				std::ptr::null()
 			);
 			gl::CompileShader(shader);
-			let mut success = 0;
-			gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
-			if success == 0
+			let mut status = 0;
+			gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
+			if status == 0
 			{
-				let infoLog = std::ptr::null_mut();
-				let mut written = 0;
-				gl::GetShaderInfoLog(shader, 512, &mut written, infoLog);
-				println!("Failed to compile shader from {p}: {}", String::from_raw_parts(infoLog as *mut u8, written as usize, 512));
+				let mut len = 0;
+				gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+				let mut buf: Vec<u8> = Vec::with_capacity(len as usize + 1);
+				buf.extend([b' '].iter().cycle().take(len as usize));
+				let error = std::ffi::CString::from_vec_unchecked(buf);
+				gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), error.as_ptr() as *mut i8);
+				println!("Failed to compile shader from {p}:\n{}", error.to_str().unwrap());
 			}
+			shader
 		}
-		shader
 	}
 
-	fn linkProgram(&mut self)
+	fn link(&mut self)
 	{
 		unsafe
 		{
 			self.program = gl::CreateProgram();
-			gl::AttachShader(self.program, self.vertex);
-			gl::AttachShader(self.program, self.fragment);
+			if self.vertex != 0 { gl::AttachShader(self.program, self.vertex); }
+			if self.fragment != 0 { gl::AttachShader(self.program, self.fragment); }
 			gl::LinkProgram(self.program);
-			gl::DeleteShader(self.vertex);
-			gl::DeleteShader(self.fragment);
+			let mut status = 0;
+			gl::GetProgramiv(self.program, gl::LINK_STATUS, &mut status);
+			if status == 0
+			{
+				let mut infoLog = [0; 512];
+				let mut written = 0;
+				gl::GetProgramInfoLog(self.program, 512, &mut written, infoLog.as_mut_ptr());
+				println!("Failed to link shader:\n{}", String::from_raw_parts(infoLog.as_mut_ptr() as *mut u8, written as usize, 512));
+			}
+			if self.vertex != 0
+			{
+				gl::DetachShader(self.program, self.vertex);
+				gl::DeleteShader(self.vertex);
+			}
+			if self.fragment != 0
+			{
+				gl::DetachShader(self.program, self.fragment);
+				gl::DeleteShader(self.fragment);
+			}
 		}
 	}
 
 	pub fn loadVertex(&mut self, p: String)
 	{
-		self.vertex = Shader::loadShader(p, true);
-		self.linkProgram();
+		self.vertex = Shader::compile(p, gl::VERTEX_SHADER);
+		self.link();
 	}
 
 	pub fn loadFragment(&mut self, p: String)
 	{
-		self.fragment = Shader::loadShader(p, false);
-		self.linkProgram();
+		self.fragment = Shader::compile(p, gl::FRAGMENT_SHADER);
+		self.link();
 	}
 
 	pub fn load(&mut self, vertex: String, fragment: String)
 	{
-		self.vertex = Shader::loadShader(vertex, true);
-		self.fragment = Shader::loadShader(fragment, false);
-		self.linkProgram();
+		self.vertex = Shader::compile(vertex, gl::VERTEX_SHADER);
+		self.fragment = Shader::compile(fragment, gl::FRAGMENT_SHADER);
+		self.link();
 	}
 
 	pub fn activate(&mut self)
@@ -90,5 +109,13 @@ impl Shader
 		{
 			gl::UseProgram(self.program);
 		}
+	}
+}
+
+impl Drop for Shader
+{
+	fn drop(&mut self)
+	{
+		unsafe { gl::DeleteProgram(self.program); }
 	}
 }
