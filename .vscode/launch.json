@@ -7,15 +7,15 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug executable 'ae2d-rust'",
+			"name": "Debug executable 'ae3d-rust'",
 			"cargo": {
 				"args": [
 					"build",
-					"--bin=ae2d-rust",
-					"--package=ae2d-rust"
+					"--bin=ae3d-rust",
+					"--package=ae3d-rust"
 				],
 				"filter": {
-					"name": "ae2d-rust",
+					"name": "ae3d-rust",
 					"kind": "bin"
 				}
 			},
@@ -25,16 +25,16 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug unit tests in executable 'ae2d-rust'",
+			"name": "Debug unit tests in executable 'ae3d-rust'",
 			"cargo": {
 				"args": [
 					"test",
 					"--no-run",
-					"--bin=ae2d-rust",
-					"--package=ae2d-rust"
+					"--bin=ae3d-rust",
+					"--package=ae3d-rust"
 				],
 				"filter": {
-					"name": "ae2d-rust",
+					"name": "ae3d-rust",
 					"kind": "bin"
 				}
 			},

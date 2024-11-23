@@ -109,22 +109,7 @@ impl Window
         }
         None
     }
-
-	pub fn create(size: Point, title: String)
-	{
-		let i = Window::getInstance();
-		i.window = Some(i.video
-			.window(title.as_str(), size.x as u32, size.y as u32)
-			.position_centered()
-			.opengl()
-			.build()
-			.unwrap());
-		i.canvas = Some(i.window.as_mut().unwrap().clone().into_canvas().accelerated().build().unwrap());
-		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
-		i.lastTime = i.timer.performance_counter() as f64;
-		i.currentTime = i.lastTime;
-	}
-
+	
 	pub fn init()
 	{
 		let f = Assets::readJSON("res/global/config.json".to_string());
@@ -134,7 +119,6 @@ impl Window
 		let mut size = Point::zero();
 		let mut style = String::from("");
 		let mut pos = Point::num(-127.0);
-		let mut ogl = false;
 
 		for section in f.unwrap().entries()
 		{
@@ -166,7 +150,6 @@ impl Window
 							if dim.0 == "y" { pos.y = dim.1.as_f64().unwrap(); }
 						}
 					}
-					if attr.0 == "OpenGL" { ogl = attr.1.as_bool().unwrap(); }
 				}
 			}
 			if section.0 == "custom" {}
@@ -174,28 +157,30 @@ impl Window
 
 		let i = Window::getInstance();
 		let mut builder = i.video.window(title.as_str(), size.x as u32, size.y as u32);
+		builder.opengl();
 
 		if pos != Point::num(-127.0) { builder.position(pos.x as i32, pos.y as i32); }
 		else { builder.position_centered(); }
-		if ogl { builder.opengl(); }
 		if style.as_str() == "resizable" { builder.resizable(); }
 		if style.as_str() == "borderless" { builder.borderless(); }
 		if style.as_str() == "fullscreen" { builder.fullscreen_desktop(); }
 
 		i.window = Some(builder.build().unwrap());
 
-        let mut canvasBuilder = i.window.as_mut().unwrap().clone().into_canvas().accelerated();
-        if ogl { canvasBuilder = canvasBuilder.index(Window::getGL().unwrap()); }
+        let canvasBuilder = i.window.as_mut().unwrap().clone().into_canvas().accelerated().index(Window::getGL().unwrap());
 		i.canvas = Some(canvasBuilder.build().unwrap());
 		i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
 		i.lastTime = i.timer.performance_counter() as f64;
 		i.currentTime = i.lastTime + 1.0;
 
-        if ogl
-        {
-            i.gl = Some(i.window.as_mut().unwrap().gl_create_context().unwrap());
-            gl::load_with(|name| i.video.gl_get_proc_address(name) as *const _);
-        }
+		i.gl = Some(i.window.as_mut().unwrap().gl_create_context().unwrap());
+		gl::load_with(|name| i.video.gl_get_proc_address(name) as *const _);
+		unsafe
+		{
+			gl::Enable(gl::DEPTH_TEST);
+			gl::DepthFunc(gl::LESS);
+			gl::Viewport(0, 0, size.x as i32, size.y as i32);
+		}
 
 		Window::loadColors();
 	}
@@ -274,7 +259,22 @@ impl Window
 						clicks: 0,
 						pos: Point{ x: x as f64, y: y as f64 }
 					});
-				}
+				},
+				sdl2::event::Event::Window { win_event, .. } =>
+				{
+					match win_event
+					{
+						sdl2::event::WindowEvent::Resized(x, y) =>
+						{
+							unsafe { gl::Viewport(0, 0, x, y); }
+						},
+						sdl2::event::WindowEvent::Maximized =>
+						{
+							unsafe { gl::Viewport(0, 0, Window::getSize().x as i32, Window::getSize().y as i32); }
+						},
+						_ => {}
+					}
+				},
 				_ => {}
 			}
 		}
@@ -299,7 +299,7 @@ impl Window
 		Window::getInstance().textureCreator.as_mut().unwrap()
 	}
 
-	pub fn draw(spr: &mut super::Sprite::Sprite)
+	pub fn draw(spr: &mut super::graphics::Sprite::Sprite)
 	{
 		spr.draw(Window::getInstance().canvas.as_mut().unwrap());
 	}

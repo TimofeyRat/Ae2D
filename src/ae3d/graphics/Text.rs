@@ -1,4 +1,4 @@
-use super::Window::Window;
+use crate::ae3d::Window::Window;
 
 #[derive(PartialEq)]
 pub enum Anchor  { Left, Center, Right, Top, Bottom }
@@ -34,7 +34,7 @@ pub struct Text<'a>
 	anchorY: Anchor,
 	rendered: Vec<Vec<sdl2::render::Texture<'a>>>,
 	lineWidth: Vec<f64>,
-	pub transform: super::math::Transformable::Transformable
+	pub transform: crate::ae3d::math::Transformable::Transformable
 }
 
 impl<'a> Text<'a>
@@ -50,13 +50,13 @@ impl<'a> Text<'a>
 			anchorY: Anchor::Top,
 			rendered: Vec::new(),
 			lineWidth: Vec::new(),
-			transform: super::math::Transformable::Transformable::new()
+			transform: crate::ae3d::math::Transformable::Transformable::new()
 		}
 	}
 
 	pub fn loadFont(&mut self, p: String, size: u16) -> bool
 	{
-		let res = super::Window::Window::getTTF().load_font(p.clone(), size);
+		let res = crate::ae3d::Window::Window::getTTF().load_font(p.clone(), size);
 		if res.is_ok()
 		{
 			self.font = Some(res.unwrap());

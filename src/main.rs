@@ -1,43 +1,47 @@
 #![allow(dead_code, non_snake_case, non_upper_case_globals, unused_must_use)]
-mod ae2d;
+mod ae3d;
 
-use std::io::Write;
-
-use ae2d::{math::Point::Point, Assets, Window::Window};
+use ae3d::Window::Window;
 
 fn main()
 {
 	Window::init();
 
-	let mut txt = ae2d::Text::Text::new();
-	txt.loadFont(Assets::getCurrentDir() + "res/fonts/main.ttf", 24);
-	txt.setString(String::from("^(* clr=red)bold text ^(/ clr=green)italic text ^(clr=blue)newline\n^(-)strikethrough text^() ^(_)underlined text"));
-	txt.setAnchor(ae2d::Text::Anchor::Center, ae2d::Text::Anchor::Center);
-	txt.transform.setPosition(Window::getSize() / Point::num(2.0));
+	let mut shader = ae3d::graphics::Shader::Shader::new();
+	shader.load("res/shaders/render.vert".to_string(), "res/shaders/render.frag".to_string());
 
-	let mut fpsTimer: f64 = 0.0;
-	let mut fpsCounter: f64 = 0.0;
-	let mut fpsCount = 0;
+	let mut vertices= vec![
+		-0.5, -0.5, 0.0,
+		0.5, -0.5, 0.0,
+		0.0, 0.5, 0.0
+	];
+
+	let mut vbo: u32 = 0;
+	let mut vao: u32 = 0;
+	unsafe
+	{
+		gl::GenBuffers(1, &mut vbo);
+		gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+		gl::GenVertexArrays(1, &mut vao);
+		gl::BindVertexArray(vao);
+
+		gl::BufferData(gl::ARRAY_BUFFER, 9 * 8, vertices.as_mut_ptr() as *const std::ffi::c_void, gl::STATIC_DRAW);
+		gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 3 * 8, std::ptr::null());
+		gl::EnableVertexAttribArray(0);
+	}
 
 	while Window::isOpen()
 	{
 		Window::update();
 
-		fpsTimer += Window::getDeltaTime();
-		fpsCounter += 1.0 / Window::getDeltaTime();
-		fpsCount += 1;
-
-		if fpsTimer >= 1.0
-		{
-			fpsTimer = 0.0;
-			print!("{}\r", fpsCounter / fpsCount as f64);
-			fpsCounter = 0.0;
-			fpsCount = 0;
-			std::io::stdout().flush();
-		}
 
 		Window::clear();
-		txt.draw(Window::getCanvas());
+		// shader.activate();
+		unsafe
+		{
+			gl::BindVertexArray(vao);
+			gl::DrawArrays(gl::TRIANGLES,  0, 3);
+		}
 		Window::display();
 	}
 }

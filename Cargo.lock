@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "ae2d-rust"
+name = "ae3d-rust"
 version = "0.1.0"
 dependencies = [
  "gl",

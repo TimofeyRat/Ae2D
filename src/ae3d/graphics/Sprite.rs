@@ -1,6 +1,6 @@
 use sdl2::image::LoadTexture;
 
-use super::{Assets, math::Point::Point, Animation::*, Window::Window};
+use crate::ae3d::{Assets, math::Point::Point, Animation::*, Window::Window};
 
 pub struct Sprite<'a>
 {

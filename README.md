@@ -1,5 +1,5 @@
-# Ae2D (Aeterno's 2D)
-### Ae2D is a game engine which main target is to run on low-end PCs without any problems while giving decent gaming and visual experience.
+# Ae3D (Aeterno's 2D)
+### Ae3D is a game engine which main target is to run on low-end PCs without any problems while giving decent gaming and visual experience.
 
 ## Development documentation
 
@@ -23,7 +23,7 @@ The main config file is located at `res/global/config.json`. It contains followi
 ```json
 {
 	"init": {
-		"title": "Ae2D",
+		"title": "Ae3D",
 		"style": "fullscreen",
 		"size": { "w": 1920, "h": 1080 }
 	},
@@ -49,7 +49,7 @@ The main config file is located at `res/global/config.json`. It contains followi
 - `position` - Position of the window. Should contain X and Y coordinates, i.e `{ "x"; 860, "y": 540 }`. If not provided, the window will appear in the center of the screen.
 
 ### Color palette
-Ae2D lets you to [color](#text-coloring) your texts, but for that you need a palette. It can be defined in `res/global/colors.json` file as follows:
+Ae3D lets you to [color](#text-coloring) your texts, but for that you need a palette. It can be defined in `res/global/colors.json` file as follows:
 
 ```json
 {
@@ -68,7 +68,7 @@ After that you can use these colors via their names.
 
 ### Text formatting
 
-Ae2D allows you to style your texts via markdown:
+Ae3D allows you to style your texts via markdown:
 - `^()` - Regular text;
 - `^(*)` - **Bold text**;
 - `^(/)` - *Italic text*;
