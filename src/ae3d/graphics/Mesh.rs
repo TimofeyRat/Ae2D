@@ -172,8 +172,18 @@ impl VAO
 				3,
 				gl::FLOAT,
 				gl::FALSE,
-				(3 * size_of::<f32>()) as i32,
+				(5 * size_of::<f32>()) as i32,
 				std::ptr::null()
+			);
+
+			gl::EnableVertexAttribArray(1);
+			gl::VertexAttribPointer(
+				1,
+				2,
+				gl::FLOAT,
+				gl::FALSE,
+				(5 * size_of::<f32>()) as i32,
+				(3 * size_of::<f32>()) as *const _
 			);
 		}
 	}

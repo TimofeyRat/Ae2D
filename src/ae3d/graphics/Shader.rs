@@ -26,7 +26,7 @@ impl Shader
 			return 0;
 		}
 
-		let code = res.unwrap();
+		let code = std::ffi::CString::new(res.unwrap()).unwrap();
 
 		unsafe
 		{
@@ -34,7 +34,7 @@ impl Shader
 			gl::ShaderSource(
 				shader,
 				1,
-				&(code.as_ptr().cast()),
+				&code.as_ptr(),
 				std::ptr::null()
 			);
 			gl::CompileShader(shader);
@@ -108,6 +108,14 @@ impl Shader
 		unsafe
 		{
 			gl::UseProgram(self.program);
+		}
+	}
+
+	pub fn setInt(&mut self, name: String, value: i32)
+	{
+		unsafe
+		{
+			gl::Uniform1i(gl::GetUniformLocation(self.program, name.as_ptr() as *const i8), value);
 		}
 	}
 }

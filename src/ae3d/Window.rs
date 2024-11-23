@@ -1,3 +1,5 @@
+use sdl2::surface::Surface;
+
 use super::{math::Point::Point, Assets};
 
 #[derive(Clone, Copy)]
@@ -44,11 +46,9 @@ pub struct Window
 	context: sdl2::Sdl,
 	video: sdl2::VideoSubsystem,
 	window: Option<sdl2::video::Window>,
-	canvas: Option<sdl2::render::WindowCanvas>,
 	events: sdl2::EventPump,
 	running: bool,
 	clearColor: sdl2::pixels::Color,
-	textureCreator: Option<sdl2::render::TextureCreator<sdl2::video::WindowContext>>,
 	deltaTime: f64,
 	currentTime: f64,
 	lastTime: f64,
@@ -57,7 +57,9 @@ pub struct Window
 	mouseEvent: Option<MouseEvent>,
 	ttfContext: sdl2::ttf::Sdl2TtfContext,
 	palette: Vec<Color>,
-    gl: Option<sdl2::video::GLContext>
+    gl: Option<sdl2::video::GLContext>,
+	textureCreator: Option<sdl2::render::TextureCreator<sdl2::surface::SurfaceContext<'static>>>,
+	tcCanvas: sdl2::render::SurfaceCanvas<'static>
 }
 
 impl Window
@@ -70,11 +72,9 @@ impl Window
 			context: c.clone(),
 			video: c.video().unwrap(),
 			window: None,
-			canvas: None,
 			events: c.event_pump().unwrap(),
 			running: true,
 			clearColor: sdl2::pixels::Color::BLACK,
-			textureCreator: None,
 			deltaTime: 0.0,
 			currentTime: 0.0,
 			lastTime: 0.0,
@@ -83,7 +83,9 @@ impl Window
 			mouseEvent: None,
 			ttfContext: sdl2::ttf::init().expect("Failed to initialize TTF"),
 			palette: Vec::new(),
-            gl: None
+            gl: None,
+			textureCreator: None,
+			tcCanvas: Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap().into_canvas().unwrap()
 		}
 	}
 
@@ -97,18 +99,6 @@ impl Window
 			INSTANCE.as_mut().expect("Window singleton is not initialized")
 		}
 	}
-
-    fn getGL() -> Option<u32>
-    {
-        for (index, item) in sdl2::render::drivers().enumerate()
-        {
-            if item.name == "opengl"
-            {
-                return Some(index as u32)
-            }
-        }
-        None
-    }
 	
 	pub fn init()
 	{
@@ -171,9 +161,6 @@ impl Window
 
 		i.window = Some(builder.opengl().build().unwrap());
 
-        // let canvasBuilder = i.window.as_mut().unwrap().clone().into_canvas().accelerated().index(Window::getGL().unwrap());
-		// i.canvas = Some(canvasBuilder.build().unwrap());
-		// i.textureCreator = Some(i.canvas.as_mut().unwrap().texture_creator());
 		i.lastTime = i.timer.performance_counter() as f64;
 		i.currentTime = i.lastTime + 1.0;
 
@@ -187,6 +174,8 @@ impl Window
 			let size = i.window.as_mut().unwrap().size();
 			gl::Viewport(0, 0, size.0 as i32, size.1 as i32);
 		}
+
+		i.textureCreator = Some(i.tcCanvas.texture_creator());
 
 		Window::loadColors();
 	}
@@ -298,14 +287,9 @@ impl Window
         }
     }
 	
-	pub fn getTC() -> &'static mut sdl2::render::TextureCreator<sdl2::video::WindowContext>
+	pub fn getTC() -> &'static mut sdl2::render::TextureCreator<sdl2::surface::SurfaceContext<'static>>
 	{
 		Window::getInstance().textureCreator.as_mut().unwrap()
-	}
-
-	pub fn draw(spr: &mut super::graphics::Sprite::Sprite)
-	{
-		spr.draw(Window::getInstance().canvas.as_mut().unwrap());
 	}
 
 	pub fn setSize(size: Point)
@@ -368,6 +352,5 @@ impl Window
 	pub fn isOpen() -> bool { Window::getInstance().running }
 	pub fn close() { Window::getInstance().running = false; }
 	pub fn getDeltaTime() -> f64 { Window::getInstance().deltaTime }
-	pub fn getCanvas() -> &'static mut sdl2::render::WindowCanvas { Window::getInstance().canvas.as_mut().unwrap() }
     pub fn getContext() -> &'static mut sdl2::video::GLContext { Window::getInstance().gl.as_mut().unwrap() }
 }
