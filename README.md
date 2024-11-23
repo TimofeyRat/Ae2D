@@ -1,4 +1,4 @@
-# Ae3D (Aeterno's 2D)
+# Ae3D (Aeterno's 3D)
 ### Ae3D is a game engine which main target is to run on low-end PCs without any problems while giving decent gaming and visual experience.
 
 ## Development documentation
@@ -28,7 +28,7 @@ The main config file is located at `res/global/config.json`. It contains followi
 		"size": { "w": 1920, "h": 1080 }
 	},
 	"optional": {
-		"OpenGL": true
+		"position": { "x": 860, "y": 540 }
 	},
 	"custom": {
 	    "parameter": "value"
@@ -45,7 +45,6 @@ The main config file is located at `res/global/config.json`. It contains followi
 	- `fullscreen` - fullscreen window.
 - `size` - Size of the window. Should contain width and height of the screen in pixels, i.e. `{ "w": 1920, "h": 1080}`. It won't be used with the `fullscreen` style.
 ### `optional` Entries:
-- `OpenGL` - Should window use OpenGL? Can be `true` or `false`;
 - `position` - Position of the window. Should contain X and Y coordinates, i.e `{ "x"; 860, "y": 540 }`. If not provided, the window will appear in the center of the screen.
 
 ### Color palette
