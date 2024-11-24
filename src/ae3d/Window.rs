@@ -170,7 +170,6 @@ impl Window
 		unsafe
 		{
 			// gl::Enable(gl::DEPTH_TEST);
-			// gl::DepthFunc(gl::LESS);
 			let size = i.window.as_mut().unwrap().size();
 			gl::Viewport(0, 0, size.0 as i32, size.1 as i32);
 		}
