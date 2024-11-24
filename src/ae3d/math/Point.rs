@@ -2,8 +2,8 @@ use std::ops::{Add, Div, Mul, Sub, AddAssign, DivAssign, MulAssign, SubAssign};
 
 #[derive(Clone, Copy)]
 pub struct Point { 
-	pub x: f64, 
-	pub y: f64 
+	pub x: f32, 
+	pub y: f32 
 }
 
 impl Add for Point
@@ -97,7 +97,7 @@ impl Point
 	{
 		Self { x: 0.0, y: 0.0 }
 	}
-	pub fn num(x: f64) -> Self
+	pub fn num(x: f32) -> Self
 	{
 		Self { x, y: x }
 	}

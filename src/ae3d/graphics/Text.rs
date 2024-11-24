@@ -33,7 +33,7 @@ pub struct Text<'a>
 	anchorX: Anchor,
 	anchorY: Anchor,
 	rendered: Vec<Vec<sdl2::render::Texture<'a>>>,
-	lineWidth: Vec<f64>,
+	lineWidth: Vec<f32>,
 	pub transform: crate::ae3d::math::Transformable::Transformable
 }
 
@@ -156,7 +156,7 @@ impl<'a> Text<'a>
 				return;
 			}
 			
-			lw += res.as_ref().unwrap().size().0 as f64;
+			lw += res.as_ref().unwrap().size().0 as f32;
 			line.push(res.unwrap().as_texture(Window::getTC()).expect("Failed to create texture while rendering text"));
 			if part.newline
 			{
@@ -176,11 +176,11 @@ impl<'a> Text<'a>
 		let mut pos = self.transform.getPosition();
 		if self.anchorY == Anchor::Center
 		{
-			pos.y -= self.font.as_mut().unwrap().height() as f64 * (self.lineWidth.len() as f64 / 2.0);
+			pos.y -= self.font.as_mut().unwrap().height() as f32 * (self.lineWidth.len() as f32 / 2.0);
 		}
 		if self.anchorY == Anchor::Bottom
 		{
-			pos.y -= self.font.as_mut().unwrap().height() as f64 * self.lineWidth.len() as f64;
+			pos.y -= self.font.as_mut().unwrap().height() as f32 * self.lineWidth.len() as f32;
 		}
 
 		for line in self.rendered.iter()
@@ -200,10 +200,10 @@ impl<'a> Text<'a>
 						w, h
 					)
 				);
-				pos.x += w as f64;
+				pos.x += w as f32;
 			}
 			lineNumber += 1;
-			pos.y += self.font.as_mut().unwrap().height() as f64;
+			pos.y += self.font.as_mut().unwrap().height() as f32;
 			pos.x = Window::getSize().x / 2.0;
 		}
 	}

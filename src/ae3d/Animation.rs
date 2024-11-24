@@ -5,14 +5,14 @@ use crate::ae3d::{Assets, Window::Window, math::Point::Point};
 pub struct Frame
 {
 	pub id: usize,
-	pub duration: f64
+	pub duration: f32
 }
 
 pub struct Animation
 {
 	pub name: String,
 	pub frames: Vec<Frame>,
-	pub currentTime: f64,
+	pub currentTime: f32,
 	pub currentFrame: usize,
 	pub repeat: i32,
 	pub repeated: i32
@@ -89,8 +89,8 @@ impl<'a> Animator<'a>
 				let mut size = Point::zero();
 				for dim in element.1.entries()
 				{
-					if dim.0 == "x" { size.x = dim.1.as_f64().unwrap(); }
-					if dim.0 == "y" { size.y = dim.1.as_f64().unwrap(); }
+					if dim.0 == "x" { size.x = dim.1.as_f32().unwrap(); }
+					if dim.0 == "y" { size.y = dim.1.as_f32().unwrap(); }
 				}
 				self.calculateFrames(size);
 			}
@@ -113,7 +113,7 @@ impl<'a> Animator<'a>
 								for args in frame.entries()
 								{
 									if args.0 == "frame" { f.id = args.1.as_usize().unwrap(); }
-									if args.0 == "duration" { f.duration = args.1.as_f64().unwrap(); }
+									if args.0 == "duration" { f.duration = args.1.as_f32().unwrap(); }
 								}
 								frames.push(f);
 							}
@@ -137,8 +137,8 @@ impl<'a> Animator<'a>
 
 		self.frames.clear();
 		let texSize = Point {
-			x: self.texture.as_mut().unwrap().query().width as f64,
-			y: self.texture.as_mut().unwrap().query().height as f64
+			x: self.texture.as_mut().unwrap().query().width as f32,
+			y: self.texture.as_mut().unwrap().query().height as f32
 		};
 
 		if (texSize.x as i32 % size.x as i32 != 0) ||

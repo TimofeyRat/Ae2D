@@ -4,13 +4,13 @@ use super::Point::Point;
 
 pub struct Vector 
 { 
-	pub length: f64, 
-	pub angle: f64
+	pub length: f32, 
+	pub angle: f32
 }
 
 impl Vector
 {
-	pub fn new(&mut self, length: f64, angle: f64) -> Vector 
+	pub fn new(&mut self, length: f32, angle: f32) -> Vector 
 	{
 		Vector {angle, length}
 	}
@@ -22,11 +22,11 @@ impl Vector
 
 	pub fn toPoint(self) -> Point
 	{
-		let a = f64::to_radians(self.angle);
+		let a = f32::to_radians(self.angle);
 		Point
 		{
-			x: f64::cos(a) * self.length,
-			y: f64::sin(a) * self.length
+			x: f32::cos(a) * self.length,
+			y: f32::sin(a) * self.length
 		}
 	}
 

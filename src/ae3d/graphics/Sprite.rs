@@ -8,7 +8,7 @@ pub struct Sprite<'a>
 	texRect: sdl2::rect::Rect,
 	scale: Point,
 	position: Point,
-	rotation: f64,
+	rotation: f32,
 	absolute_origin: Option<Point>,
 	relative_origin: Option<Point>,
 	texSize: Point,
@@ -40,7 +40,7 @@ impl<'a> Sprite<'a>
 		self.tex = if res.is_ok() { Some(res.unwrap()) } else { println!("Failed to load texture {}", path.clone().as_str()); None };
 		if self.tex.is_none() { return; }
 		let query = self.tex.as_mut().unwrap().query();
-		self.texSize = Point { x: query.clone().width as f64, y: query.clone().height as f64 };
+		self.texSize = Point { x: query.clone().width as f32, y: query.clone().height as f32 };
 		self.texRect = sdl2::rect::Rect::new(0, 0, query.clone().width, query.height);
 		self.animated = false;
 		self.anim = Animator::new();
@@ -74,10 +74,10 @@ impl<'a> Sprite<'a>
 				sdl2::rect::Rect::new(
 					self.position.x as i32 - origin.x as i32,
 					self.position.y as i32 - origin.y as i32,
-					(frame.width() as f64 * self.scale.x) as u32,
-					(frame.height() as f64 * self.scale.y) as u32
+					(frame.width() as f32 * self.scale.x) as u32,
+					(frame.height() as f32 * self.scale.y) as u32
 				),
-				self.rotation,
+				self.rotation as f64,
 				sdl2::rect::Point::new(origin.x as i32, origin.y as i32),
 				self.scale.x < 0.0,
 				self.scale.y < 0.0
@@ -96,7 +96,7 @@ impl<'a> Sprite<'a>
 					self.texRect.width(),
 					self.texRect.height()
 				),
-				self.rotation,
+				self.rotation as f64,
 				sdl2::rect::Point::new(origin.x as i32, origin.y as i32),
 				self.scale.x < 0.0,
 				self.scale.y < 0.0
@@ -109,8 +109,8 @@ impl<'a> Sprite<'a>
 		let query = self.tex.as_mut().unwrap().query();
 		Point
 		{
-			x: query.clone().width as f64,
-			y: query.height as f64
+			x: query.clone().width as f32,
+			y: query.height as f32
 		}
 	}
 
@@ -120,16 +120,16 @@ impl<'a> Sprite<'a>
 		{
 			Point
 			{
-				x: self.anim.getCurrentFrame().clone().width() as f64,
-				y: self.anim.getCurrentFrame().clone().height() as f64
+				x: self.anim.getCurrentFrame().clone().width() as f32,
+				y: self.anim.getCurrentFrame().clone().height() as f32
 			}
 		}
 		else
 		{
 			Point
 			{
-				x: self.texRect.clone().width() as f64,
-				y: self.texRect.clone().height() as f64
+				x: self.texRect.clone().width() as f32,
+				y: self.texRect.clone().height() as f32
 			}
 		};
 
@@ -149,16 +149,16 @@ impl<'a> Sprite<'a>
 			{
 				Point
 				{
-					x: self.anim.getCurrentFrame().clone().width() as f64,
-					y: self.anim.getCurrentFrame().clone().height() as f64
+					x: self.anim.getCurrentFrame().clone().width() as f32,
+					y: self.anim.getCurrentFrame().clone().height() as f32
 				}
 			}
 			else
 			{
 				Point
 				{
-					x: self.texRect.clone().width() as f64,
-					y: self.texRect.clone().height() as f64
+					x: self.texRect.clone().width() as f32,
+					y: self.texRect.clone().height() as f32
 				}
 			};
 			bounds * self.relative_origin.unwrap()
@@ -166,7 +166,7 @@ impl<'a> Sprite<'a>
 	}
 
 	pub fn moveBy(&mut self, p: Point) { self.position += p; }
-	pub fn rotate(&mut self, angle: f64) { self.rotation += angle; }
+	pub fn rotate(&mut self, angle: f32) { self.rotation += angle; }
 	pub fn scale(&mut self, scale: Point) { self.scale += scale; }
 	pub fn setTextureRect(&mut self, r: sdl2::rect::Rect) { self.texRect = r; }
 	pub fn getTextureRect(&mut self) -> sdl2::rect::Rect { self.texRect }
@@ -174,8 +174,8 @@ impl<'a> Sprite<'a>
 	pub fn getPosiiton(&mut self) -> Point { self.position }
 	pub fn setScale(&mut self, factor: Point) { self.scale = factor; }
 	pub fn getScale(&mut self) -> Point { self.scale }
-	pub fn setRotation(&mut self, angle: f64) { self.rotation = angle; }
-	pub fn getRotation(&mut self) -> f64 { self.rotation }
+	pub fn setRotation(&mut self, angle: f32) { self.rotation = angle; }
+	pub fn getRotation(&mut self) -> f32 { self.rotation }
 	pub fn setAbsoluteOrigin(&mut self, p: Point) { self.relative_origin = None; self.absolute_origin = Some(p); }
 	pub fn setRelativeOrigin(&mut self, p: Point) { self.absolute_origin = None; self.relative_origin = Some(p); }
 }

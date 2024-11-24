@@ -49,9 +49,9 @@ pub struct Window
 	events: sdl2::EventPump,
 	running: bool,
 	clearColor: sdl2::pixels::Color,
-	deltaTime: f64,
-	currentTime: f64,
-	lastTime: f64,
+	deltaTime: f32,
+	currentTime: f32,
+	lastTime: f32,
 	timer: sdl2::TimerSubsystem,
 	keyEvent: Option<KeyEvent>,
 	mouseEvent: Option<MouseEvent>,
@@ -122,8 +122,8 @@ impl Window
 					{
 						for dim in attr.1.entries()
 						{
-							if dim.0 == "w" { size.x = dim.1.as_f64().unwrap(); }
-							if dim.0 == "h" { size.y = dim.1.as_f64().unwrap(); }
+							if dim.0 == "w" { size.x = dim.1.as_f32().unwrap(); }
+							if dim.0 == "h" { size.y = dim.1.as_f32().unwrap(); }
 						}
 					}
 				}
@@ -136,8 +136,8 @@ impl Window
 					{
 						for dim in attr.1.entries()
 						{
-							if dim.0 == "x" { pos.x = dim.1.as_f64().unwrap(); }
-							if dim.0 == "y" { pos.y = dim.1.as_f64().unwrap(); }
+							if dim.0 == "x" { pos.x = dim.1.as_f32().unwrap(); }
+							if dim.0 == "y" { pos.y = dim.1.as_f32().unwrap(); }
 						}
 					}
 				}
@@ -161,7 +161,7 @@ impl Window
 
 		i.window = Some(builder.opengl().build().unwrap());
 
-		i.lastTime = i.timer.performance_counter() as f64;
+		i.lastTime = i.timer.performance_counter() as f32;
 		i.currentTime = i.lastTime + 1.0;
 
 		i.gl = Some(i.window.as_mut().unwrap().gl_create_context().unwrap());
@@ -212,8 +212,8 @@ impl Window
 		i.mouseEvent = None;
 
 		i.lastTime = i.currentTime;
-		i.currentTime = i.timer.performance_counter() as f64;
-		i.deltaTime = (i.currentTime - i.lastTime) / i.timer.performance_frequency() as f64;
+		i.currentTime = i.timer.performance_counter() as f32;
+		i.deltaTime = (i.currentTime - i.lastTime) / i.timer.performance_frequency() as f32;
 		for event in i.events.poll_iter()
 		{
 			match event
@@ -243,7 +243,7 @@ impl Window
 					{
 						btn: mouse_btn,
 						clicks,
-						pos: Point{ x: x as f64, y: y as f64 }
+						pos: Point{ x: x as f32, y: y as f32 }
 					});
 				},
 				sdl2::event::Event::MouseButtonUp { mouse_btn, x, y, .. } =>
@@ -252,7 +252,7 @@ impl Window
 					{
 						btn: mouse_btn,
 						clicks: 0,
-						pos: Point{ x: x as f64, y: y as f64 }
+						pos: Point{ x: x as f32, y: y as f32 }
 					});
 				},
 				sdl2::event::Event::Window { win_event, .. } =>
@@ -305,8 +305,8 @@ impl Window
 		let size = Window::getInstance().window.as_mut().unwrap().size();
 		Point
 		{
-			x: size.0 as f64,
-			y: size.1 as f64
+			x: size.0 as f32,
+			y: size.1 as f32
 		}
 	}
 
@@ -351,6 +351,6 @@ impl Window
 	pub fn setClearColor(clr: sdl2::pixels::Color) { Window::getInstance().clearColor = clr; }
 	pub fn isOpen() -> bool { Window::getInstance().running }
 	pub fn close() { Window::getInstance().running = false; }
-	pub fn getDeltaTime() -> f64 { Window::getInstance().deltaTime }
+	pub fn getDeltaTime() -> f32 { Window::getInstance().deltaTime }
     pub fn getContext() -> &'static mut sdl2::video::GLContext { Window::getInstance().gl.as_mut().unwrap() }
 }

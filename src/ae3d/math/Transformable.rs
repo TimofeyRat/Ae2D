@@ -5,7 +5,7 @@ pub struct Transformable
 	pos: Point,
 	scale: Point,
 	origin: Point,
-	angle: f64
+	angle: f32
 }
 
 impl Transformable
@@ -66,17 +66,17 @@ impl Transformable
 		self.origin
 	}
 
-	pub fn setRotation(&mut self, angle: f64)
+	pub fn setRotation(&mut self, angle: f32)
 	{
 		self.angle = angle;
 	}
 
-	pub fn rotate(&mut self, angle: f64)
+	pub fn rotate(&mut self, angle: f32)
 	{
 		self.angle += angle;
 	}
 
-	pub fn getRotation(&mut self) -> f64
+	pub fn getRotation(&mut self) -> f32
 	{
 		self.angle
 	}

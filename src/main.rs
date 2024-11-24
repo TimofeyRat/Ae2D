@@ -60,11 +60,22 @@ fn main()
 	let mut vbo = VBO::new(); vbo.set(&vertices);
 	let mut vao = VAO::new(); vao.set();
 	let mut ibo = IBO::new(); ibo.set(&indices);
+	
+	let mut mat = ae3d::math::GL::mat4_identity();
+
 
 	while Window::isOpen()
 	{
 		Window::update();
-
+		
+		mat = glm::ext::rotate(
+			&mat,
+			glm::radians(90.0 * Window::getDeltaTime()),
+			glm::Vec3::new(0.0, 1.0, 0.0)
+		);
+		let raw = ae3d::math::GL::mat4_toGL(mat);
+		shader.setMat4("transform".to_string(), &raw);
+		
 		Window::clear();
 		unsafe
 		{
