@@ -8,7 +8,7 @@ pub fn mat4_identity() -> glm::Mat4
 	)
 }
 
-pub fn mat4_toGL(mat: glm::Mat4) -> [f32; 16]
+pub fn mat4_toGL(mat: &glm::Mat4) -> [f32; 16]
 {
 	let mut v = [0.0; 16];
 	v[0] = mat.c0.x; v[1] = mat.c0.y; v[2] = mat.c0.z; v[3] = mat.c0.w;

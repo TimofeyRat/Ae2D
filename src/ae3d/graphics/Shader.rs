@@ -121,10 +121,11 @@ impl Shader
 
 	pub fn setMat4(&mut self, name: String, value: &[f32; 16])
 	{
+		let cn = std::ffi::CString::new(name).unwrap();
 		unsafe
 		{
 			gl::UniformMatrix4fv(
-				gl::GetUniformLocation(self.program, name.as_ptr() as *const i8),
+				gl::GetUniformLocation(self.program, cn.as_ptr()),
 				1,
 				gl::FALSE,
 				value.as_ptr()

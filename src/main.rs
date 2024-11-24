@@ -1,7 +1,7 @@
 #![allow(dead_code, non_snake_case, non_upper_case_globals, unused_must_use)]
 mod ae3d;
 
-use ae3d::{graphics::Mesh::*, Assets, Window::Window};
+use ae3d::{graphics::Mesh::*, Window::Window};
 
 fn main()
 {
@@ -23,71 +23,32 @@ fn main()
 		0, 1, 2,
 		2, 3, 0
 	];
-	
-	let mut tex: u32 = 0;
-	
-	let res = stb_image::image::load(Assets::getCurrentDir() + "res/tex/nefor.png");
-	match res
-	{
-		stb_image::image::LoadResult::Error(err) => { println!("Failed to open texture: {err}"); },
-		stb_image::image::LoadResult::ImageU8(data) =>
-		{
-			unsafe
-			{
-				gl::GenTextures(1, &mut tex);
-				gl::BindTexture(gl::TEXTURE_2D, tex);
-				gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-				gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-				gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
-				gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-				gl::TexImage2D(
-					gl::TEXTURE_2D,
-					0,
-					gl::RGBA as i32,
-					data.width as i32,
-					data.height as i32,
-					0,
-					gl::RGBA,
-					gl::UNSIGNED_BYTE,
-					data.data.as_ptr() as *const _
-				);
-				gl::GenerateMipmap(gl::TEXTURE_2D);
-			}
-		},
-		_ => {}
-	}
 
-	let mut vbo = VBO::new(); vbo.set(&vertices);
-	let mut vao = VAO::new(); vao.set();
-	let mut ibo = IBO::new(); ibo.set(&indices);
-	
-	let mut mat = ae3d::math::GL::mat4_identity();
+	let view = ae3d::math::GL::mat4_toGL(&glm::ext::translate(
+		&ae3d::math::GL::mat4_identity(),
+		glm::Vec3::new(0.0, 0.0, -3.0)
+	));
+	let proj = ae3d::math::GL::mat4_toGL(&glm::ext::perspective(
+		glm::radians(45.0),
+		Window::getSize().x / Window::getSize().y,
+		0.1, 100.0
+	));
 
+	shader.setMat4("view".to_string(), &view);
+	shader.setMat4("projection".to_string(), &proj);
+
+	let mut m = Mesh::new();
+	m.loadTexture("res/tex/test.png".to_string());
+	m.gen(&vertices, &indices);
 
 	while Window::isOpen()
 	{
 		Window::update();
-		
-		mat = glm::ext::rotate(
-			&mat,
-			glm::radians(90.0 * Window::getDeltaTime()),
-			glm::Vec3::new(0.0, 1.0, 0.0)
-		);
-		let raw = ae3d::math::GL::mat4_toGL(mat);
-		shader.setMat4("transform".to_string(), &raw);
+
+		m.rotateY(45.0 * Window::getDeltaTime());
 		
 		Window::clear();
-		unsafe
-		{
-			gl::DrawElements(
-				gl::TRIANGLES,
-				indices.len() as i32,
-				gl::UNSIGNED_INT,
-				std::ptr::null()
-			);
-			let err = gl::GetError();
-			if err != 0 { println!("{err}"); }
-		}
+		m.draw(&mut shader);
 		Window::display();
 	}
 }
