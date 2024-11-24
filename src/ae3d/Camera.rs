@@ -111,9 +111,10 @@ impl Camera
 
 	pub fn fly(&mut self, factor: glm::Vec3)
 	{
-		self.pos = self.pos + self.direction * factor.z;
+		let dir = glm::vec3(self.direction.x, 0.0, self.direction.z);
+		self.pos = self.pos + dir * factor.z;
 		self.pos = self.pos + self.up * factor.y;
-		self.pos = self.pos + glm::cross(self.direction, self.up) * factor.x;
+		self.pos = self.pos + glm::cross(dir, self.up) * factor.x;
 		self.reloadView = true;
 	}
 

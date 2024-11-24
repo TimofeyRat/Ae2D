@@ -232,7 +232,7 @@ impl Mesh
 		}
 	}
 
-	pub fn loadTexture(&mut self, p: String)
+	pub fn loadTexture(&mut self, p: String, mode: gl::types::GLenum)
 	{
 		let res = stb_image::image::load(crate::ae3d::Assets::getCurrentDir() + &p);
 		match res
@@ -244,8 +244,8 @@ impl Mesh
 				{
 					gl::GenTextures(1, &mut self.texture);
 					gl::BindTexture(gl::TEXTURE_2D, self.texture);
-					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, mode as i32);
+					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, mode as i32);
 					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
 					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 					gl::TexImage2D(
