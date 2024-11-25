@@ -169,7 +169,8 @@ impl Window
 		i.video.gl_set_swap_interval(sdl2::video::SwapInterval::VSync);
 		unsafe
 		{
-			// gl::Enable(gl::DEPTH_TEST);
+			gl::Enable(gl::DEPTH_TEST);
+			gl::DepthFunc(gl::LESS);
 			let size = i.window.as_mut().unwrap().size();
 			gl::Viewport(0, 0, size.0 as i32, size.1 as i32);
 		}
@@ -282,7 +283,7 @@ impl Window
         {
             let c = Window::toGLcolor(i.clearColor);
             gl::ClearColor(c.0, c.1, c.2, c.3);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
     }
 	
