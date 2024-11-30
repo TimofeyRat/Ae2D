@@ -8,22 +8,24 @@ fn main()
 	Window::init();
 	Window::setClearColor(sdl2::pixels::Color::RGB(127, 127,127));
 
-	let vertices: Vec<f32>= vec![
-		-10.0, 0.0, -10.0,	0.0, 0.0,
-		10.0, 0.0, -10.0,	5.0, 0.0,
-		10.0, 0.0, 10.0,	5.0, 5.0,
-		-10.0, 0.0, 10.0,	0.0, 5.0
-	];
+	// let vertices: Vec<f32>= vec![
+	// 	-10.0, 0.0, -10.0,	0.0, 0.0,
+	// 	10.0, 0.0, -10.0,	5.0, 0.0,
+	// 	10.0, 0.0, 10.0,	5.0, 5.0,
+	// 	-10.0, 0.0, 10.0,	0.0, 5.0
+	// ];
 		
-	let indices: Vec<u32> = vec![
-		0, 1, 2,
-		2, 3, 0
-	];
+	// let indices: Vec<u32> = vec![
+	// 	0, 1, 2,
+	// 	2, 3, 0
+	// ];
+
+	// let mut m = Mesh::new();
+	// m.loadTexture("res/tex/floor.png".to_string(), gl::REPEAT);
+	// m.gen(&vertices, &indices);
 
 	let mut m = Mesh::new();
-	m.loadTexture("res/tex/floor.png".to_string(), gl::REPEAT);
-	m.gen(&vertices, &indices);
-	// m.translate(glm::vec3(0.0,0.0, -3.0));
+	m.loadFromFile("res/models/cube.obj".to_string());
 
 	let mut cam = ae3d::Camera::Camera::perspective(ae3d::Camera::CameraMode::FirstPerson, 45.0);
 	cam.translate(glm::vec3(0.0, 1.0, -3.0));

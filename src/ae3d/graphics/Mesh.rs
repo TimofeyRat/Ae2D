@@ -161,7 +161,7 @@ impl VAO
 		}
 	}
 
-	pub fn set(&mut self)
+	pub fn set(&mut self, vertexCount: usize, normalsCount: usize)
 	{
 		self.bind();
 		unsafe
@@ -172,18 +172,28 @@ impl VAO
 				3,
 				gl::FLOAT,
 				gl::FALSE,
-				(5 * size_of::<f32>()) as i32,
+				(3 * size_of::<f32>()) as i32,
 				std::ptr::null()
 			);
 
 			gl::EnableVertexAttribArray(1);
 			gl::VertexAttribPointer(
 				1,
+				3,
+				gl::FLOAT,
+				gl::FALSE,
+				(3 * size_of::<f32>()) as i32,
+				((vertexCount + normalsCount) * size_of::<f32>()) as *const _
+			);
+
+			gl::EnableVertexAttribArray(2);
+			gl::VertexAttribPointer(
+				2,
 				2,
 				gl::FLOAT,
 				gl::FALSE,
-				(5 * size_of::<f32>()) as i32,
-				(3 * size_of::<f32>()) as *const _
+				(2 * size_of::<f32>()) as i32,
+				(vertexCount * size_of::<f32>()) as *const _
 			);
 		}
 	}
@@ -197,17 +207,23 @@ impl Drop for VAO
 	}
 }
 
+pub struct Material
+{
+	// TODO: implement the materials
+}
+
 pub struct Mesh
 {
 	vertices: Vec<f32>,
 	indices: Vec<u32>,
+	uv: Vec<f32>,
+	normals: Vec<f32>,
 	vbo: VBO,
 	ibo: IBO,
 	vao: VAO,
 	pos: glm::Vec3,
 	scale: glm::Vec3,
 	rotation: glm::Vec3,
-	texture: u32,
 	matrix: [f32; 16],
 	reloadMatrix: bool
 }
@@ -226,53 +242,11 @@ impl Mesh
 			pos: glm::Vec3::new(0.0, 0.0, 0.0),
 			scale: glm::Vec3::new(1.0, 1.0, 1.0),
 			rotation: glm::Vec3::new(0.0, 0.0, 0.0),
-			texture: 0,
 			matrix: [0.0; 16],
-			reloadMatrix: true
+			reloadMatrix: true,
+			uv: vec![],
+			normals: vec![]
 		}
-	}
-
-	pub fn loadTexture(&mut self, p: String, mode: gl::types::GLenum)
-	{
-		let res = stb_image::image::load(crate::ae3d::Assets::getCurrentDir() + &p);
-		match res
-		{
-			stb_image::image::LoadResult::Error(err) => { println!("Failed to open texture: {err}"); },
-			stb_image::image::LoadResult::ImageU8(data) =>
-			{
-				unsafe
-				{
-					gl::GenTextures(1, &mut self.texture);
-					gl::BindTexture(gl::TEXTURE_2D, self.texture);
-					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, mode as i32);
-					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, mode as i32);
-					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
-					gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-					gl::TexImage2D(
-						gl::TEXTURE_2D,
-						0,
-						gl::RGBA as i32,
-						data.width as i32,
-						data.height as i32,
-						0,
-						gl::RGBA,
-						gl::UNSIGNED_BYTE,
-						data.data.as_ptr() as *const _
-					);
-					gl::GenerateMipmap(gl::TEXTURE_2D);
-				}
-			},
-			_ => {}
-		}
-	}
-
-	pub fn gen(&mut self, vertices: &Vec<f32>, indices: &Vec<u32>)
-	{
-		self.vertices = vertices.to_vec();
-		self.indices = indices.to_vec();
-		self.vbo.set(&self.vertices);
-		self.vao.set();
-		self.ibo.set(&self.indices);
 	}
 
 	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
@@ -281,7 +255,6 @@ impl Mesh
 		shader.setMat4("model".to_string(), &self.matrix);
 		unsafe
 		{
-			gl::BindTexture(gl::TEXTURE_2D, self.texture);
 			self.vao.bind();
 			gl::DrawElements(
 				gl::TRIANGLES,
@@ -294,7 +267,7 @@ impl Mesh
 		}
 	}
 
-	pub fn updateMatrix(&mut self)
+	fn updateMatrix(&mut self)
 	{
 		let mut model = crate::ae3d::math::GL::mat4_identity();
 		model = glm::ext::translate(&model, -self.pos);
@@ -352,5 +325,59 @@ impl Mesh
 	{
 		self.rotation = x;
 		self.reloadMatrix = true;
+	}
+	
+	pub fn loadFromFile(&mut self, path: String)
+	{
+		let fileResult = crate::ae3d::Assets::readFile(path.clone());
+		if fileResult.is_none()
+		{
+			println!("Failed to open model from {path}");
+			return
+		}
+		for line in fileResult.unwrap().split("\n").collect::<Vec<&str>>()
+		{
+			let mut args: Vec<&str> = line.split(" ").collect();
+			if args[0].find("#").unwrap_or(usize::MAX) == 0 { continue; }
+			if args[0] == "v"
+			{
+				self.vertices.push(args[1].parse::<f32>().unwrap());
+				self.vertices.push(args[2].parse::<f32>().unwrap());
+				self.vertices.push(args[3].parse::<f32>().unwrap());
+			}
+			if args[0] == "vn"
+			{
+				self.normals.push(args[1].parse::<f32>().unwrap());
+				self.normals.push(args[2].parse::<f32>().unwrap());
+				self.normals.push(args[3].parse::<f32>().unwrap());
+			}
+			if args[0] == "vt"
+			{
+				self.uv.push(args[1].parse::<f32>().unwrap());
+				self.uv.push(args[2].parse::<f32>().unwrap());
+			}
+			if args[0] == "f"
+			{
+				// self.faces.push(args[1].parse::<u32>().unwrap());
+				args.remove(0);
+				for face in args
+				{
+					let f: Vec<&str> = face.split("/").collect();
+					self.indices.push(f[0].parse::<u32>().unwrap() - 1);
+				}
+			}
+		}
+		let mut vertices = self.vertices.clone();
+		for x in self.normals.clone()
+		{
+			vertices.push(x);
+		}
+		for x in self.uv.clone()
+		{
+			vertices.push(x);
+		}
+		self.vbo.set(&vertices);
+		self.vao.set(self.vertices.len(), self.normals.len());
+		self.ibo.set(&self.indices);
 	}
 }
