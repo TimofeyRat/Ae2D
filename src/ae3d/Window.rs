@@ -149,7 +149,8 @@ impl Window
 
 		let attr = i.video.gl_attr();
 		attr.set_context_profile(sdl2::video::GLProfile::Core);
-		attr.set_context_version(3, 3);
+		// attr.set_context_version(3, 3);
+		attr.set_context_version(2, 0);
 
 		let mut builder = i.video.window(title.as_str(), size.x as u32, size.y as u32);
 

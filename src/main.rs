@@ -34,6 +34,20 @@ fn main()
 	let moveSpeed = 3.0;
 	let rotateSpeed = 75.0;
 
+	unsafe
+	{
+		let v = gl::GetString(gl::VERSION);
+		let mut size: isize = 0;
+		let mut vector: Vec<u8> = vec![];
+		while v.offset(size).read() != 0
+		{
+			vector.push(v.offset(size).read());
+			size += 1;
+		}
+		let str = String::from_utf8(vector).unwrap();
+		println!("{str}");
+	}
+
 	while Window::isOpen()
 	{
 		Window::update();
