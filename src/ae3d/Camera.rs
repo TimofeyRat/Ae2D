@@ -60,6 +60,8 @@ impl Camera
 
 		self.shader.setMat4("projection".to_string(), &self.projection);
 		self.shader.setMat4("view".to_string(), &self.view);
+		self.shader.setVec3("camPos".to_string(), self.pos.as_array());
+		self.shader.setVec3("lightPos".to_string(), glm::vec3(100.0, 100.0, 100.0).as_array());
 		mesh.draw(&mut self.shader);
 	}
 
@@ -69,7 +71,7 @@ impl Camera
 		self.projection = super::math::GL::mat4_toGL(&glm::ext::perspective(
 			self.fov,
 			s.x / s.y,
-			0.01, 100.0
+			0.01, 2000.0
 		));
 		self.reloadProjection = false;
 	}

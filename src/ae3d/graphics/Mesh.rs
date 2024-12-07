@@ -197,6 +197,44 @@ impl VAO
 			);
 		}
 	}
+
+	pub fn gen(&mut self)
+	{
+		self.bind();
+		unsafe
+		{
+			gl::EnableVertexAttribArray(0);
+			gl::EnableVertexAttribArray(1);
+			gl::EnableVertexAttribArray(2);
+			
+			gl::VertexAttribPointer(
+				0,
+				3,
+				gl::FLOAT,
+				gl::FALSE,
+				(8 * size_of::<f32>()) as i32,
+				std::ptr::null()
+			);
+
+			gl::VertexAttribPointer(
+				1,
+				2,
+				gl::FLOAT,
+				gl::FALSE,
+				(8 * size_of::<f32>()) as i32,
+				(3 * size_of::<f32>()) as *const std::ffi::c_void
+			);
+
+			gl::VertexAttribPointer(
+				2,
+				3,
+				gl::FLOAT,
+				gl::FALSE,
+				(8 * size_of::<f32>()) as i32,
+				(5 * size_of::<f32>()) as *const std::ffi::c_void
+			);
+		}
+	}
 }
 
 impl Drop for VAO
@@ -207,25 +245,154 @@ impl Drop for VAO
 	}
 }
 
-pub struct Material
+pub struct Polygon
 {
-	// TODO: implement the materials
+	vertices: Vec<f32>,
+	vbo: VBO,
+	vao: VAO,
+	material: std::sync::Arc<obj::Material>,
+	tex0: u32
+	/*
+		Implementation:
+			1. Members are material and 3 vertices(pos/normal/texture)
+			2. When loading face of mesh convert the IDs of vertices to the vertices itself and push here not 1/0/0 but (xyz)/(xyz)/(xy)
+			3. Create local vao/vbo
+	*/
+}
+
+impl Polygon
+{
+	pub fn new() -> Self
+	{
+		Polygon
+		{
+			material: obj::Material::new(String::new()).into(),
+			vao: VAO::new(),
+			vbo: VBO::new(),
+			vertices: vec![],
+			tex0: 0
+		}
+	}
+
+	pub fn generate(data: &obj::ObjData, base: obj::SimplePolygon, mtl: Option<obj::ObjMaterial>) -> Self
+	{
+		let mut p = Polygon::new();
+
+		for v in base.0
+		{
+			let pos = data.position.get(v.0).unwrap_or(&[0.0, 0.0, 0.0]);
+			let uv = data.texture.get(v.1.unwrap_or(usize::MAX)).unwrap_or(&[0.0, 0.0]);
+			let normal = data.normal.get(v.2.unwrap_or(usize::MAX)).unwrap_or(&[0.0, 0.0, 0.0]);
+
+			p.vertices.push(*pos.get(0).unwrap());
+			p.vertices.push(*pos.get(1).unwrap());
+			p.vertices.push(*pos.get(2).unwrap());
+			p.vertices.push(*uv.get(0).unwrap());
+			p.vertices.push(*uv.get(1).unwrap());
+			p.vertices.push(*normal.get(0).unwrap());
+			p.vertices.push(*normal.get(1).unwrap());
+			p.vertices.push(*normal.get(2).unwrap());
+		}
+
+		p.vbo.set(&p.vertices);
+		p.vao.gen();
+
+		if mtl.is_some()
+		{
+			match mtl.unwrap()
+			{
+				obj::ObjMaterial::Mtl(x) => { p.material = x; }
+				obj::ObjMaterial::Ref(x) =>
+				{
+					for mtl in data.material_libs.clone()
+					{
+						for m in mtl.materials.clone()
+						{
+							if m.name == x
+							{
+								p.material = m;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if p.material.map_kd.is_some()
+		{
+			let res = stb_image::image::load(p.material.map_kd.as_ref().unwrap().clone());
+			match res
+			{
+				stb_image::image::LoadResult::Error(e) => println!("Failed to load texture: {e}"),
+				stb_image::image::LoadResult::ImageF32(_) => {}
+				stb_image::image::LoadResult::ImageU8(data) =>
+				{
+					unsafe
+					{
+						gl::GenTextures(1, &mut p.tex0);
+						gl::BindTexture(gl::TEXTURE_2D, p.tex0);
+						
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+						gl::TexImage2D(
+							gl::TEXTURE_2D,
+							0,
+							gl::RGBA as i32,
+							data.width as i32,
+							data.height as i32,
+							0,
+							gl::RGBA,
+							gl::UNSIGNED_BYTE,
+							data.data.as_ptr() as *const std::ffi::c_void
+						);
+					}
+				}
+			}
+		}
+
+		p
+	}
+
+	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
+	{
+		shader.setVec3("ambient".to_string(), &self.material.ka.unwrap_or([1.0; 3]));
+		shader.setVec3("diffuse".to_string(), &self.material.kd.unwrap_or([1.0; 3]));
+		shader.setVec3("specular".to_string(), &self.material.ks.unwrap_or([1.0; 3]));
+		// self.material.map
+		if self.tex0 != 0
+		{
+			unsafe
+			{
+				gl::ActiveTexture(gl::TEXTURE0);
+				gl::BindTexture(gl::TEXTURE_2D, self.tex0);
+				shader.setInt("tex".to_string(), 0);
+			}
+		}
+		self.vao.bind();
+		unsafe
+		{
+			gl::DrawArrays(
+				gl::TRIANGLES,
+				0,
+				3
+			);
+			let err = gl::GetError();
+			if err != 0 { println!("{err}"); }
+		}
+	}
 }
 
 pub struct Mesh
 {
-	vertices: Vec<f32>,
-	indices: Vec<u32>,
-	uv: Vec<f32>,
-	normals: Vec<f32>,
-	vbo: VBO,
-	ibo: IBO,
-	vao: VAO,
 	pos: glm::Vec3,
 	scale: glm::Vec3,
 	rotation: glm::Vec3,
 	matrix: [f32; 16],
-	reloadMatrix: bool
+	reloadMatrix: bool,
+	polygons: Vec<Polygon>
 }
 
 impl Mesh
@@ -234,18 +401,12 @@ impl Mesh
 	{
 		Self
 		{
-			vertices: vec![],
-			indices: vec![],
-			vbo: VBO::new(),
-			ibo: IBO::new(),
-			vao: VAO::new(),
 			pos: glm::Vec3::new(0.0, 0.0, 0.0),
 			scale: glm::Vec3::new(1.0, 1.0, 1.0),
 			rotation: glm::Vec3::new(0.0, 0.0, 0.0),
 			matrix: [0.0; 16],
 			reloadMatrix: true,
-			uv: vec![],
-			normals: vec![]
+			polygons: vec![]
 		}
 	}
 
@@ -253,17 +414,9 @@ impl Mesh
 	{
 		if self.reloadMatrix { self.updateMatrix(); }
 		shader.setMat4("model".to_string(), &self.matrix);
-		unsafe
+		for p in self.polygons.iter_mut()
 		{
-			self.vao.bind();
-			gl::DrawElements(
-				gl::TRIANGLES,
-				self.indices.len() as i32,
-				gl::UNSIGNED_INT,
-				std::ptr::null()
-			);
-			let err = gl::GetError();
-			if err != 0 { println!("{err}"); }
+			p.draw(shader);
 		}
 	}
 
@@ -329,55 +482,19 @@ impl Mesh
 	
 	pub fn loadFromFile(&mut self, path: String)
 	{
-		let fileResult = crate::ae3d::Assets::readFile(path.clone());
-		if fileResult.is_none()
+		let result = obj::Obj::load(path);
+		if result.is_err() { println!("Failed to load model: {}", result.err().unwrap()); return; }
+		let mut obj = result.unwrap();
+		obj.load_mtls();
+		for o in &obj.data.objects
 		{
-			println!("Failed to open model from {path}");
-			return
-		}
-		for line in fileResult.unwrap().split("\n").collect::<Vec<&str>>()
-		{
-			let mut args: Vec<&str> = line.split(" ").collect();
-			if args[0].find("#").unwrap_or(usize::MAX) == 0 { continue; }
-			if args[0] == "v"
+			for g in &o.groups
 			{
-				self.vertices.push(args[1].parse::<f32>().unwrap());
-				self.vertices.push(args[2].parse::<f32>().unwrap());
-				self.vertices.push(args[3].parse::<f32>().unwrap());
-			}
-			if args[0] == "vn"
-			{
-				self.normals.push(args[1].parse::<f32>().unwrap());
-				self.normals.push(args[2].parse::<f32>().unwrap());
-				self.normals.push(args[3].parse::<f32>().unwrap());
-			}
-			if args[0] == "vt"
-			{
-				self.uv.push(args[1].parse::<f32>().unwrap());
-				self.uv.push(args[2].parse::<f32>().unwrap());
-			}
-			if args[0] == "f"
-			{
-				// self.faces.push(args[1].parse::<u32>().unwrap());
-				args.remove(0);
-				for face in args
+				for p in &g.polys
 				{
-					let f: Vec<&str> = face.split("/").collect();
-					self.indices.push(f[0].parse::<u32>().unwrap() - 1);
+					self.polygons.push(Polygon::generate(&obj.data, p.clone(), g.material.clone()));
 				}
 			}
 		}
-		let mut vertices = self.vertices.clone();
-		for x in self.normals.clone()
-		{
-			vertices.push(x);
-		}
-		for x in self.uv.clone()
-		{
-			vertices.push(x);
-		}
-		self.vbo.set(&vertices);
-		self.vao.set(self.vertices.len(), self.normals.len());
-		self.ibo.set(&self.indices);
 	}
 }

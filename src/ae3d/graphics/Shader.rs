@@ -84,18 +84,6 @@ impl Shader
 		}
 	}
 
-	pub fn loadVertex(&mut self, p: String)
-	{
-		self.vertex = Shader::compile(p, gl::VERTEX_SHADER);
-		self.link();
-	}
-
-	pub fn loadFragment(&mut self, p: String)
-	{
-		self.fragment = Shader::compile(p, gl::FRAGMENT_SHADER);
-		self.link();
-	}
-
 	pub fn load(&mut self, vertex: String, fragment: String)
 	{
 		self.vertex = Shader::compile(vertex, gl::VERTEX_SHADER);
@@ -129,6 +117,20 @@ impl Shader
 				1,
 				gl::FALSE,
 				value.as_ptr()
+			);
+		}
+	}
+
+	pub fn setVec3(&mut self, name: String, value: &[f32; 3])
+	{
+		let cn = std::ffi::CString::new(name).unwrap();
+		unsafe
+		{
+			gl::Uniform3f(
+				gl::GetUniformLocation(self.program, cn.as_ptr()),
+				*value.get(0).unwrap(),
+				*value.get(1).unwrap(),
+				*value.get(2).unwrap()
 			);
 		}
 	}

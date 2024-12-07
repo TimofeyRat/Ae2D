@@ -9,6 +9,7 @@ dependencies = [
  "gl",
  "glm",
  "json",
+ "obj",
  "sdl2",
  "stb_image",
 ]
@@ -230,6 +231,12 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "obj"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "059c95245738cdc7b40078cdd51a23200252a4c0a0a6dd005136152b3f467a4a"
 
 [[package]]
 name = "quickcheck"
