@@ -374,10 +374,11 @@ impl Polygon
 		self.vao.bind();
 		unsafe
 		{
+			let size = (self.vertices.len() / 8) as i32;
 			gl::DrawArrays(
-				gl::TRIANGLES,
+				if size == 3 { gl::TRIANGLES } else { gl::QUADS },
 				0,
-				3
+				size
 			);
 			let err = gl::GetError();
 			if err != 0 { println!("{err}"); }

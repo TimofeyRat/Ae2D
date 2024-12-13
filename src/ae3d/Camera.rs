@@ -71,7 +71,7 @@ impl Camera
 		self.projection = super::math::GL::mat4_toGL(&glm::ext::perspective(
 			self.fov,
 			s.x / s.y,
-			0.01, 2000.0
+			0.01, 1000.0
 		));
 		self.reloadProjection = false;
 	}
