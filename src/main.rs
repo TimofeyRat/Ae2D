@@ -11,6 +11,10 @@ fn main()
 	let mut m = Mesh::new();
 	m.loadFromFile("res/models/quads.obj".to_string());
 
+	let mut light = Mesh::new();
+	light.loadFromFile("res/models/cube.obj".to_string());
+	light.setPosition(glm::vec3(-25.0, 25.0, 25.0));
+
 	let mut cam = ae3d::Camera::Camera::perspective(ae3d::Camera::CameraMode::FirstPerson, 45.0);
 	cam.translate(glm::vec3(0.0, 1.0, -3.0));
 	cam.rotate(glm::vec2(90.0, 0.0));
@@ -81,6 +85,7 @@ fn main()
 
 		Window::clear();
 		cam.draw(&mut m);
+		cam.draw(&mut light);
 		Window::display();
 	}
 }

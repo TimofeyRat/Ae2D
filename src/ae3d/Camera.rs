@@ -61,7 +61,7 @@ impl Camera
 		self.shader.setMat4("projection".to_string(), &self.projection);
 		self.shader.setMat4("view".to_string(), &self.view);
 		self.shader.setVec3("camPos".to_string(), self.pos.as_array());
-		self.shader.setVec3("lightPos".to_string(), glm::vec3(100.0, 100.0, 100.0).as_array());
+		self.shader.setVec3("lightPos".to_string(), glm::vec3(-25.0, 25.0, 25.0).as_array());
 		mesh.draw(&mut self.shader);
 	}
 

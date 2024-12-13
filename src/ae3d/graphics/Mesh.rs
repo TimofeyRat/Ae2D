@@ -250,14 +250,10 @@ pub struct Polygon
 	vertices: Vec<f32>,
 	vbo: VBO,
 	vao: VAO,
-	material: std::sync::Arc<obj::Material>,
-	tex0: u32
-	/*
-		Implementation:
-			1. Members are material and 3 vertices(pos/normal/texture)
-			2. When loading face of mesh convert the IDs of vertices to the vertices itself and push here not 1/0/0 but (xyz)/(xyz)/(xy)
-			3. Create local vao/vbo
-	*/
+	tex0: u32,
+	ambient: glm::Vec3,
+	diffuse: glm::Vec3,
+	specular: glm::Vec3
 }
 
 impl Polygon
@@ -266,11 +262,69 @@ impl Polygon
 	{
 		Polygon
 		{
-			material: obj::Material::new(String::new()).into(),
 			vao: VAO::new(),
 			vbo: VBO::new(),
 			vertices: vec![],
-			tex0: 0
+			tex0: 0,
+			ambient: glm::vec3(0.0, 0.0, 0.0),
+			diffuse: glm::vec3(0.0, 0.0, 0.0),
+			specular: glm::vec3(0.0, 0.0, 0.0)
+		}
+	}
+
+	pub fn loadMaterial(&mut self, mtl: std::sync::Arc<obj::Material>)
+	{
+		if mtl.name.is_empty() { return; }
+
+		if mtl.ka.is_some()
+		{
+			let arr = mtl.ka.unwrap();
+			self.ambient = glm::vec3(arr[0], arr[1], arr[2]);
+		}
+		if mtl.kd.is_some()
+		{
+			let arr = mtl.kd.unwrap();
+			self.diffuse = glm::vec3(arr[0], arr[1], arr[2]);
+		}
+		if mtl.ks.is_some()
+		{
+			let arr = mtl.ks.unwrap();
+			self.specular = glm::vec3(arr[0], arr[1], arr[2]);
+		}
+
+		if mtl.map_kd.is_some()
+		{
+			let res = stb_image::image::load(mtl.map_kd.as_ref().unwrap().clone());
+			match res
+			{
+				stb_image::image::LoadResult::Error(e) => println!("Failed to load texture: {e}"),
+				stb_image::image::LoadResult::ImageF32(_) => {}
+				stb_image::image::LoadResult::ImageU8(data) =>
+				{
+					unsafe
+					{
+						gl::GenTextures(1, &mut self.tex0);
+						gl::BindTexture(gl::TEXTURE_2D, self.tex0);
+						
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+						gl::TexImage2D(
+							gl::TEXTURE_2D,
+							0,
+							gl::RGBA as i32,
+							data.width as i32,
+							data.height as i32,
+							0,
+							gl::RGBA,
+							gl::UNSIGNED_BYTE,
+							data.data.as_ptr() as *const std::ffi::c_void
+						);
+					}
+				}
+			}
 		}
 	}
 
@@ -301,7 +355,7 @@ impl Polygon
 		{
 			match mtl.unwrap()
 			{
-				obj::ObjMaterial::Mtl(x) => { p.material = x; }
+				obj::ObjMaterial::Mtl(x) => { p.loadMaterial(x); }
 				obj::ObjMaterial::Ref(x) =>
 				{
 					for mtl in data.material_libs.clone()
@@ -310,44 +364,9 @@ impl Polygon
 						{
 							if m.name == x
 							{
-								p.material = m;
+								p.loadMaterial(m);
 							}
 						}
-					}
-				}
-			}
-		}
-
-		if p.material.map_kd.is_some()
-		{
-			let res = stb_image::image::load(p.material.map_kd.as_ref().unwrap().clone());
-			match res
-			{
-				stb_image::image::LoadResult::Error(e) => println!("Failed to load texture: {e}"),
-				stb_image::image::LoadResult::ImageF32(_) => {}
-				stb_image::image::LoadResult::ImageU8(data) =>
-				{
-					unsafe
-					{
-						gl::GenTextures(1, &mut p.tex0);
-						gl::BindTexture(gl::TEXTURE_2D, p.tex0);
-						
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-						gl::TexImage2D(
-							gl::TEXTURE_2D,
-							0,
-							gl::RGBA as i32,
-							data.width as i32,
-							data.height as i32,
-							0,
-							gl::RGBA,
-							gl::UNSIGNED_BYTE,
-							data.data.as_ptr() as *const std::ffi::c_void
-						);
 					}
 				}
 			}
@@ -358,19 +377,16 @@ impl Polygon
 
 	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
 	{
-		shader.setVec3("ambient".to_string(), &self.material.ka.unwrap_or([1.0; 3]));
-		shader.setVec3("diffuse".to_string(), &self.material.kd.unwrap_or([1.0; 3]));
-		shader.setVec3("specular".to_string(), &self.material.ks.unwrap_or([1.0; 3]));
-		// self.material.map
-		if self.tex0 != 0
+		shader.setVec3("ambient".to_string(), &self.ambient.as_array());
+		shader.setVec3("diffuse".to_string(), &self.diffuse.as_array());
+		shader.setVec3("specular".to_string(), &self.specular.as_array());
+		unsafe
 		{
-			unsafe
-			{
-				gl::ActiveTexture(gl::TEXTURE0);
-				gl::BindTexture(gl::TEXTURE_2D, self.tex0);
-				shader.setInt("tex".to_string(), 0);
-			}
+			gl::ActiveTexture(gl::TEXTURE0);
+			gl::BindTexture(gl::TEXTURE_2D, self.tex0);
 		}
+		shader.setInt("tex".to_string(), 0);
+		shader.setBool("enableTexture".to_string(), self.tex0 != 0);
 		self.vao.bind();
 		unsafe
 		{
@@ -393,7 +409,8 @@ pub struct Mesh
 	rotation: glm::Vec3,
 	matrix: [f32; 16],
 	reloadMatrix: bool,
-	polygons: Vec<Polygon>
+	polygons: Vec<Polygon>,
+	name: String
 }
 
 impl Mesh
@@ -407,7 +424,8 @@ impl Mesh
 			rotation: glm::Vec3::new(0.0, 0.0, 0.0),
 			matrix: [0.0; 16],
 			reloadMatrix: true,
-			polygons: vec![]
+			polygons: vec![],
+			name: String::new()
 		}
 	}
 
@@ -415,6 +433,8 @@ impl Mesh
 	{
 		if self.reloadMatrix { self.updateMatrix(); }
 		shader.setMat4("model".to_string(), &self.matrix);
+		shader.setVec3("ambient".to_string(), &[0.0; 3]);
+		shader.setVec3("diffuse".to_string(), &[0.0; 3]);
 		for p in self.polygons.iter_mut()
 		{
 			p.draw(shader);
@@ -424,7 +444,7 @@ impl Mesh
 	fn updateMatrix(&mut self)
 	{
 		let mut model = crate::ae3d::math::GL::mat4_identity();
-		model = glm::ext::translate(&model, -self.pos);
+		model = glm::ext::translate(&model, self.pos);
 		model = glm::ext::scale(&model, self.scale);
 		model = glm::ext::rotate(&model, glm::radians(self.rotation.x), glm::vec3(1.0, 0.0, 0.0));
 		model = glm::ext::rotate(&model, glm::radians(self.rotation.y), glm::vec3(0.0, 1.0, 0.0));
@@ -489,6 +509,7 @@ impl Mesh
 		obj.load_mtls();
 		for o in &obj.data.objects
 		{
+			self.name = o.name.clone();
 			for g in &o.groups
 			{
 				for p in &g.polys

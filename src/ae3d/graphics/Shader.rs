@@ -135,6 +135,18 @@ impl Shader
 		}
 	}
 
+	pub fn setBool(&mut self, name: String, value: bool)
+	{
+		let cn = std::ffi::CString::new(name).unwrap();
+		unsafe
+		{
+			gl::Uniform1i(
+				gl::GetUniformLocation(self.program, cn.as_ptr()),
+				value as i32
+			);
+		}
+	}
+
 	pub fn isLoaded(&mut self) -> bool { self.program != 0 }
 }
 
