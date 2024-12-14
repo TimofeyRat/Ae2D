@@ -294,37 +294,7 @@ impl Polygon
 
 		if mtl.map_kd.is_some()
 		{
-			let res = stb_image::image::load(mtl.map_kd.as_ref().unwrap().clone());
-			match res
-			{
-				stb_image::image::LoadResult::Error(e) => println!("Failed to load texture: {e}"),
-				stb_image::image::LoadResult::ImageF32(_) => {}
-				stb_image::image::LoadResult::ImageU8(data) =>
-				{
-					unsafe
-					{
-						gl::GenTextures(1, &mut self.tex0);
-						gl::BindTexture(gl::TEXTURE_2D, self.tex0);
-						
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-						gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-						gl::TexImage2D(
-							gl::TEXTURE_2D,
-							0,
-							gl::RGBA as i32,
-							data.width as i32,
-							data.height as i32,
-							0,
-							gl::RGBA,
-							gl::UNSIGNED_BYTE,
-							data.data.as_ptr() as *const std::ffi::c_void
-						);
-					}
-				}
-			}
+			self.tex0 = crate::ae3d::Assets::loadTexture(mtl.map_kd.as_ref().unwrap().clone());
 		}
 	}
 
