@@ -51,7 +51,7 @@ pub fn readJSON(path: String) -> Option<json::JsonValue>
 	Some(parsedRes.unwrap())
 }
 
-pub fn loadTexture(path: String) -> u32
+fn loadTexture(path: String) -> u32
 {
 	let res = stb_image::image::load(path.clone());
 	match res
@@ -107,5 +107,27 @@ pub fn loadTexture(path: String) -> u32
 
 			return tex;
 		}
+	}
+}
+
+pub struct Texture
+{
+	path: String,
+	id: u32
+}
+
+pub static mut textures: Vec<Texture> = vec![];
+
+pub fn getTexture(path: String) -> u32
+{
+	unsafe
+	{
+		for tex in textures.iter()
+		{
+			if tex.path == path.clone() { return tex.id; }
+		}
+		let id = loadTexture(path.clone());
+		textures.push(Texture { id, path });
+		return id;
 	}
 }

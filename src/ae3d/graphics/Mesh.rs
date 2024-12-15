@@ -1,4 +1,4 @@
-pub struct VBO
+struct VBO
 {
 	id: u32
 }
@@ -60,7 +60,7 @@ impl Drop for VBO
 	}
 }
 
-pub struct IBO
+struct IBO
 {
 	id: u32
 }
@@ -122,7 +122,7 @@ impl Drop for IBO
 	}
 }
 
-pub struct VAO
+struct VAO
 {
 	id: u32
 }
@@ -245,15 +245,15 @@ impl Drop for VAO
 	}
 }
 
-pub struct Polygon
+struct Polygon
 {
 	vertices: Vec<f32>,
 	vbo: VBO,
 	vao: VAO,
 	tex0: u32,
-	ambient: glm::Vec3,
-	diffuse: glm::Vec3,
-	specular: glm::Vec3
+	ambient: glam::Vec3,
+	diffuse: glam::Vec3,
+	specular: glam::Vec3
 }
 
 impl Polygon
@@ -266,9 +266,9 @@ impl Polygon
 			vbo: VBO::new(),
 			vertices: vec![],
 			tex0: 0,
-			ambient: glm::vec3(0.0, 0.0, 0.0),
-			diffuse: glm::vec3(0.0, 0.0, 0.0),
-			specular: glm::vec3(0.0, 0.0, 0.0)
+			ambient: glam::vec3(0.0, 0.0, 0.0),
+			diffuse: glam::vec3(0.0, 0.0, 0.0),
+			specular: glam::vec3(0.0, 0.0, 0.0)
 		}
 	}
 
@@ -279,22 +279,22 @@ impl Polygon
 		if mtl.ka.is_some()
 		{
 			let arr = mtl.ka.unwrap();
-			self.ambient = glm::vec3(arr[0], arr[1], arr[2]);
+			self.ambient = glam::vec3(arr[0], arr[1], arr[2]);
 		}
 		if mtl.kd.is_some()
 		{
 			let arr = mtl.kd.unwrap();
-			self.diffuse = glm::vec3(arr[0], arr[1], arr[2]);
+			self.diffuse = glam::vec3(arr[0], arr[1], arr[2]);
 		}
 		if mtl.ks.is_some()
 		{
 			let arr = mtl.ks.unwrap();
-			self.specular = glm::vec3(arr[0], arr[1], arr[2]);
+			self.specular = glam::vec3(arr[0], arr[1], arr[2]);
 		}
 
 		if mtl.map_kd.is_some()
 		{
-			self.tex0 = crate::ae3d::Assets::loadTexture(mtl.map_kd.as_ref().unwrap().clone());
+			self.tex0 = crate::ae3d::Assets::getTexture(mtl.map_kd.as_ref().unwrap().clone());
 		}
 	}
 
@@ -347,9 +347,9 @@ impl Polygon
 
 	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
 	{
-		shader.setVec3("ambient".to_string(), &self.ambient.as_array());
-		shader.setVec3("diffuse".to_string(), &self.diffuse.as_array());
-		shader.setVec3("specular".to_string(), &self.specular.as_array());
+		shader.setVec3("ambient".to_string(), self.ambient.to_array());
+		shader.setVec3("diffuse".to_string(), self.diffuse.to_array());
+		shader.setVec3("specular".to_string(), self.specular.to_array());
 		unsafe
 		{
 			gl::ActiveTexture(gl::TEXTURE0);
@@ -374,9 +374,9 @@ impl Polygon
 
 pub struct Mesh
 {
-	pos: glm::Vec3,
-	scale: glm::Vec3,
-	rotation: glm::Vec3,
+	pos: glam::Vec3,
+	scale: glam::Vec3,
+	rotation: glam::Vec3,
 	matrix: [f32; 16],
 	reloadMatrix: bool,
 	polygons: Vec<Polygon>,
@@ -389,9 +389,9 @@ impl Mesh
 	{
 		Self
 		{
-			pos: glm::Vec3::new(0.0, 0.0, 0.0),
-			scale: glm::Vec3::new(1.0, 1.0, 1.0),
-			rotation: glm::Vec3::new(0.0, 0.0, 0.0),
+			pos: glam::Vec3::new(0.0, 0.0, 0.0),
+			scale: glam::Vec3::new(1.0, 1.0, 1.0),
+			rotation: glam::Vec3::new(0.0, 0.0, 0.0),
 			matrix: [0.0; 16],
 			reloadMatrix: true,
 			polygons: vec![],
@@ -403,8 +403,8 @@ impl Mesh
 	{
 		if self.reloadMatrix { self.updateMatrix(); }
 		shader.setMat4("model".to_string(), &self.matrix);
-		shader.setVec3("ambient".to_string(), &[0.0; 3]);
-		shader.setVec3("diffuse".to_string(), &[0.0; 3]);
+		shader.setVec3("ambient".to_string(), [0.0; 3]);
+		shader.setVec3("diffuse".to_string(), [0.0; 3]);
 		for p in self.polygons.iter_mut()
 		{
 			p.draw(shader);
@@ -413,35 +413,34 @@ impl Mesh
 
 	fn updateMatrix(&mut self)
 	{
-		let mut model = crate::ae3d::math::GL::mat4_identity();
-		model = glm::ext::translate(&model, self.pos);
-		model = glm::ext::scale(&model, self.scale);
-		model = glm::ext::rotate(&model, glm::radians(self.rotation.x), glm::vec3(1.0, 0.0, 0.0));
-		model = glm::ext::rotate(&model, glm::radians(self.rotation.y), glm::vec3(0.0, 1.0, 0.0));
-		model = glm::ext::rotate(&model, glm::radians(self.rotation.z), glm::vec3(0.0, 0.0, 1.0));
-		self.matrix = crate::ae3d::math::GL::mat4_toGL(&model);
+		let mut model = glam::Mat4::IDENTITY;
+		model = model.mul_mat4(&glam::Mat4::from_translation(self.pos));
+		model = model.mul_mat4(&glam::Mat4::from_rotation_x(self.rotation.x.to_radians()));
+		model = model.mul_mat4(&glam::Mat4::from_rotation_y(self.rotation.y.to_radians()));
+		model = model.mul_mat4(&glam::Mat4::from_rotation_z(self.rotation.z.to_radians()));
+		self.matrix = model.to_cols_array();
 		self.reloadMatrix = false;
 	}
 	
-	pub fn translate(&mut self, factor: glm::Vec3)
+	pub fn translate(&mut self, factor: glam::Vec3)
 	{
 		self.pos = self.pos + factor;
 		self.reloadMatrix = true;
 	}
 
-	pub fn setPosition(&mut self, x: glm::Vec3)
+	pub fn setPosition(&mut self, x: glam::Vec3)
 	{
 		self.pos = x;
 		self.reloadMatrix = true;
 	}
 
-	pub fn scale(&mut self, factor: glm::Vec3)
+	pub fn scale(&mut self, factor: glam::Vec3)
 	{
 		self.scale = self.scale * factor;
 		self.reloadMatrix = true;
 	}
 
-	pub fn setScale(&mut self, x: glm::Vec3)
+	pub fn setScale(&mut self, x: glam::Vec3)
 	{
 		self.scale = x;
 		self.reloadMatrix = true;
@@ -465,7 +464,7 @@ impl Mesh
 		self.reloadMatrix = true;
 	}
 
-	pub fn setRotation(&mut self, x: glm::Vec3)
+	pub fn setRotation(&mut self, x: glam::Vec3)
 	{
 		self.rotation = x;
 		self.reloadMatrix = true;

@@ -6,9 +6,10 @@ license = "MIT"
 
 [dependencies]
 gl = "0.14.0"
-glm = "0.2.3"
+glam = "0.29.2"
 json = "0.12.4"
 obj = "0.10.2"
+spex = "0.2.2"
 stb_image = "0.3.0"
 
 [dependencies.sdl2]
