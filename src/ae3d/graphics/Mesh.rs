@@ -1,4 +1,4 @@
-struct VBO
+pub struct VBO
 {
 	id: u32
 }
@@ -60,69 +60,7 @@ impl Drop for VBO
 	}
 }
 
-struct IBO
-{
-	id: u32
-}
-
-impl IBO
-{
-	pub fn new() -> Self
-	{
-		let mut id = 0;
-		unsafe { gl::GenBuffers(1, &mut id); }
-		Self { id }
-	}
-
-	pub fn bind(&mut self)
-	{
-		unsafe
-		{
-			gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.id);
-		}
-	}
-
-	pub fn unbind(&mut self)
-	{
-		unsafe 
-		{
-			gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-		}
-	}
-
-	pub fn delete(&mut self)
-	{
-		self.unbind();
-		unsafe
-		{
-			gl::DeleteBuffers(1, &self.id);
-		}
-	}
-
-	pub fn set(&mut self, indices: &Vec<u32>)
-	{
-		self.bind();
-		unsafe
-		{
-			gl::BufferData(
-				gl::ELEMENT_ARRAY_BUFFER,
-				(indices.len() * size_of::<u32>()) as isize,
-				indices.as_ptr() as *const _,
-				gl::DYNAMIC_DRAW
-			);
-		}
-	}
-}
-
-impl Drop for IBO
-{
-	fn drop(&mut self)
-	{
-		self.delete();
-	}
-}
-
-struct VAO
+pub struct VAO
 {
 	id: u32
 }
@@ -380,7 +318,8 @@ pub struct Mesh
 	matrix: [f32; 16],
 	reloadMatrix: bool,
 	polygons: Vec<Polygon>,
-	name: String
+	name: String,
+	light: bool
 }
 
 impl Mesh
@@ -395,7 +334,8 @@ impl Mesh
 			matrix: [0.0; 16],
 			reloadMatrix: true,
 			polygons: vec![],
-			name: String::new()
+			name: String::new(),
+			light: true
 		}
 	}
 
@@ -405,6 +345,7 @@ impl Mesh
 		shader.setMat4("model".to_string(), &self.matrix);
 		shader.setVec3("ambient".to_string(), [0.0; 3]);
 		shader.setVec3("diffuse".to_string(), [0.0; 3]);
+		shader.setInt("enableLight".to_string(), self.light as i32);
 		for p in self.polygons.iter_mut()
 		{
 			p.draw(shader);
@@ -418,6 +359,7 @@ impl Mesh
 		model = model.mul_mat4(&glam::Mat4::from_rotation_x(self.rotation.x.to_radians()));
 		model = model.mul_mat4(&glam::Mat4::from_rotation_y(self.rotation.y.to_radians()));
 		model = model.mul_mat4(&glam::Mat4::from_rotation_z(self.rotation.z.to_radians()));
+		model = model.mul_mat4(&glam::Mat4::from_scale(self.scale));
 		self.matrix = model.to_cols_array();
 		self.reloadMatrix = false;
 	}
@@ -487,5 +429,15 @@ impl Mesh
 				}
 			}
 		}
+	}
+
+	pub fn setApplyLighting(&mut self, light: bool)
+	{
+		self.light = light;
+	}
+
+	pub fn shouldApplyLighting(&mut self) -> bool
+	{
+		self.light
 	}
 }

@@ -1,7 +1,3 @@
-use sdl2::surface::Surface;
-
-use super::{math::Point::Point, Assets};
-
 #[derive(Clone, Copy)]
 pub enum KeyAction
 {
@@ -32,7 +28,7 @@ pub struct MouseEvent
 {
 	pub btn: sdl2::mouse::MouseButton,
 	pub clicks: u8,
-	pub pos: Point
+	pub pos: glam::Vec2
 }
 
 pub struct Color
@@ -85,7 +81,7 @@ impl Window
 			palette: Vec::new(),
             gl: None,
 			textureCreator: None,
-			tcCanvas: Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap().into_canvas().unwrap()
+			tcCanvas: sdl2::surface::Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap().into_canvas().unwrap()
 		}
 	}
 
@@ -102,13 +98,13 @@ impl Window
 	
 	pub fn init()
 	{
-		let f = Assets::readJSON("res/global/config.json".to_string());
+		let f = super::Assets::readJSON("res/global/config.json".to_string());
 		if f.is_none() { return }
 
 		let mut title = String::from("");
-		let mut size = Point::zero();
+		let mut size = glam::Vec2::ZERO;
 		let mut style = String::from("");
-		let mut pos = Point::num(-127.0);
+		let mut pos = glam::Vec2::splat(-127.0);
 
 		for section in f.unwrap().entries()
 		{
@@ -155,7 +151,7 @@ impl Window
 
 		let mut builder = i.video.window(title.as_str(), size.x as u32, size.y as u32);
 
-		if pos != Point::num(-127.0) { builder.position(pos.x as i32, pos.y as i32); }
+		if pos != glam::Vec2::splat(-127.0) { builder.position(pos.x as i32, pos.y as i32); }
 		else { builder.position_centered(); }
 		if style.as_str() == "resizable" { builder.resizable(); }
 		if style.as_str() == "borderless" { builder.borderless(); }
@@ -172,6 +168,8 @@ impl Window
 		unsafe
 		{
 			gl::Enable(gl::DEPTH_TEST);
+			gl::Enable(gl::BLEND);
+			gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 			gl::DepthFunc(gl::LESS);
 			let size = i.window.as_mut().unwrap().size();
 			gl::Viewport(0, 0, size.0 as i32, size.1 as i32);
@@ -186,7 +184,7 @@ impl Window
 	{
 		let palette = &mut Window::getInstance().palette;
 
-		let f = Assets::readJSON("res/global/colors.json".to_string());
+		let f = super::Assets::readJSON("res/global/colors.json".to_string());
 		if f.is_none() { return; }
 
 		for color in f.unwrap().entries()
@@ -245,7 +243,7 @@ impl Window
 					{
 						btn: mouse_btn,
 						clicks,
-						pos: Point{ x: x as f32, y: y as f32 }
+						pos: glam::vec2(x as f32, y as f32)
 					});
 				},
 				sdl2::event::Event::MouseButtonUp { mouse_btn, x, y, .. } =>
@@ -254,7 +252,7 @@ impl Window
 					{
 						btn: mouse_btn,
 						clicks: 0,
-						pos: Point{ x: x as f32, y: y as f32 }
+						pos: glam::vec2(x as f32, y as f32)
 					});
 				},
 				sdl2::event::Event::Window { win_event, .. } =>
@@ -294,7 +292,7 @@ impl Window
 		Window::getInstance().textureCreator.as_mut().unwrap()
 	}
 
-	pub fn setSize(size: Point)
+	pub fn setSize(size: glam::Vec2)
 	{
 		Window::getInstance().window.as_mut().unwrap().set_size(
 			size.x as u32,
@@ -302,14 +300,10 @@ impl Window
 		);
 	}
 
-	pub fn getSize() -> Point
+	pub fn getSize() -> glam::Vec2
 	{
 		let size = Window::getInstance().window.as_mut().unwrap().size();
-		Point
-		{
-			x: size.0 as f32,
-			y: size.1 as f32
-		}
+		glam::vec2(size.0 as f32, size.1 as f32)
 	}
 
 	pub fn isKeyPressed(key: sdl2::keyboard::Scancode) -> bool
