@@ -8,20 +8,23 @@ fn main()
 	Window::init();
 	Window::setClearColor(sdl2::pixels::Color::RGB(0, 0, 0));
 
-	let mut skybox = Mesh::new();
-	skybox.loadFromFile("res/models/skybox.obj".to_string());
-	skybox.setScale(glam::vec3(100.0, 100.0, 100.0));
-	skybox.setApplyLighting(false);
+	// let mut skybox = Mesh::new();
+	// skybox.loadFromFile("res/models/skybox.obj".to_string());
+	// skybox.setScale(glam::vec3(100.0, 100.0, 100.0));
+	// skybox.setApplyLighting(false);
 
-	let mut m = Mesh::new();
-	m.loadFromFile("res/models/quads.obj".to_string());
+	// let mut m = Mesh::new();
+	// m.loadFromFile("res/models/quads.obj".to_string());
 
-	let mut light = Mesh::new();
-	light.loadFromFile("res/models/cube.obj".to_string());
-	light.setPosition(glam::vec3(-25.0, 35.0, 25.0));
-	light.rotateY(45.0 - 180.0);
-	light.rotateZ(45.0);
-	light.setApplyLighting(false);
+	let mut utah = Mesh::new();
+	utah.loadFromFile("res/models/utah.obj".to_string());
+
+	// let mut light = Mesh::new();
+	// light.loadFromFile("res/models/cube.obj".to_string());
+	// light.setPosition(glam::vec3(-25.0, 35.0, 25.0));
+	// light.rotateY(45.0 - 180.0);
+	// light.rotateZ(45.0);
+	// light.setApplyLighting(false);
 
 	let mut cam = ae3d::Camera::Camera::perspective(ae3d::Camera::CameraMode::FirstPerson, 45.0);
 	cam.translate(glam::vec3(-25.0, 40.0, 35.0));
@@ -38,7 +41,7 @@ fn main()
 
 	let mut txt = ae3d::graphics::Text::Text::new();
 	txt.loadFont("res/fonts/b52.fnt".to_string());
-	txt.setString("Hello".to_string());
+	txt.setString("^(*)Hello ^(/)world".to_string());
 
 	unsafe
 	{
@@ -100,12 +103,13 @@ fn main()
 			cam.rotate(glam::vec2(rotateSpeed * Window::getDeltaTime(), 0.0));
 		}
 
-		skybox.setPosition(cam.getPosition());
+		// skybox.setPosition(cam.getPosition());
 
 		Window::clear();
-		cam.draw(&mut skybox);
-		cam.draw(&mut m);
-		cam.draw(&mut light);
+		// cam.draw(&mut skybox);
+		// cam.draw(&mut m);
+		cam.draw(&mut utah);
+		// cam.draw(&mut light);
 
 		ui.activate();
 		ui.setMat4("projection".to_string(), &proj.to_cols_array());

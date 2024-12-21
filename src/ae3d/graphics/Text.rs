@@ -162,20 +162,26 @@ impl Drop for Font
 	}
 }
 
+#[derive(PartialEq)]
+pub enum Anchor { Left, Center, Right, Bottom, Top }
+
+#[derive(Debug)]
 struct StyledText
 {
 	pub text: String,
 	pub bold: bool,
 	pub italic: bool,
 	pub underlined: bool,
-	pub strikethrough: bool
+	pub strikethrough: bool,
+	pub newline: bool,
+	pub color: sdl2::pixels::Color
 }
 
 pub struct Text
 {
 	font: Font,
 	position: glam::Vec2,
-	text: String,
+	text: Vec<StyledText>,
 	vertices: i32,
 	reload: bool,
 	vbo: u32,
@@ -196,11 +202,13 @@ impl Text
 			gl::GenVertexArrays(1, &mut vao);
 		}
 
+		println!("{vao}, {vbo}");
+
 		Self
 		{
 			font: Font::new(),
 			position: glam::Vec2::ZERO,
-			text: String::new(),
+			text: vec![],
 			vbo,
 			vao,
 			vertices: 0,
@@ -216,7 +224,70 @@ impl Text
 
 	pub fn setString(&mut self, str: String)
 	{
-		self.text = str;
+		let mut part = StyledText
+		{
+			text: String::new(),
+			bold: false,
+			italic: false,
+			underlined: false,
+			strikethrough: false,
+			newline: false,
+			color: sdl2::pixels::Color::WHITE
+		};
+
+		let chars = str.as_str();
+		let mut index = 0;
+		while index < chars.len()
+		{
+			let c = &chars[index..index+1];
+
+			if c == "^" && chars.get(index+1..index+2).unwrap_or("") == "("
+			{
+				if !part.text.is_empty()
+				{
+					self.text.push(part);
+					part = StyledText
+					{
+						text: String::new(),
+						bold: false,
+						italic: false,
+						underlined: false,
+						strikethrough: false,
+						newline: false,
+						color: sdl2::pixels::Color::WHITE
+					};
+				}
+				let mut raw = String::new();
+
+				index += 2;
+				while chars.get(index..index+1).unwrap_or(")") != ")"
+				{
+					raw.push_str(chars.get(index..index+1).unwrap_or(""));
+					index += 1;
+				}
+
+				let style: Vec<&str> = raw.split(" ").collect();
+				for el in style
+				{
+					if el == "*" { part.bold = true; }
+					if el == "/" { part.italic = true; }
+					if el == "_" { part.underlined = true; }
+					if el == "-" { part.strikethrough = true; }
+					if el.contains("clr")
+					{
+						part.color = crate::ae3d::Window::Window::getColor(el.split("=").nth(1).unwrap().to_string());
+					}
+				}
+			}
+			else if c == "\n" { part.newline = true; }
+			else { part.text.push_str(c); }
+			
+			index += 1;
+		}
+		self.text.push(part);
+
+		println!("{:?}", self.text);
+		
 		self.reload = true;
 	}
 
@@ -248,32 +319,41 @@ impl Text
 		let mut pos = glam::Vec2::splat(100.0);
 
 		let scale = self.fontSize as f32 / self.font.height as f32;
-		
-		for ch in self.text.chars()
+		let italic = self.font.height as f32 * 10.0_f32.to_radians().sin();
+
+		for part in self.text.iter()
 		{
-			let glyph = self.font.getGlyph(ch);
-			vertices.append(&mut vec![
-				pos.x + glyph.offset.x as f32 * scale,
-				pos.y + (glyph.offset.y as f32 - self.font.base as f32) * scale,
-				glyph.rect.left() / self.font.bitmapSize.x,
-				glyph.rect.top() / self.font.bitmapSize.y,
-
-				pos.x + (glyph.offset.x as f32 + glyph.rect.width()) * scale,
-				pos.y + (glyph.offset.y as f32 - self.font.base as f32) * scale,
-				glyph.rect.right() / self.font.bitmapSize.x,
-				glyph.rect.top() / self.font.bitmapSize.y,
-
-				pos.x + (glyph.offset.x as f32 + glyph.rect.width()) * scale,
-				pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale,
-				glyph.rect.right() / self.font.bitmapSize.x,
-				glyph.rect.bottom() / self.font.bitmapSize.y,
-
-				pos.x + (glyph.offset.x as f32) * scale,
-				pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale,
-				glyph.rect.left() / self.font.bitmapSize.x,
-				glyph.rect.bottom() / self.font.bitmapSize.y
-			]);
-			pos.x += glyph.advance as f32 * scale;
+			for ch in part.text.chars()
+			{
+				let glyph = self.font.getGlyph(ch);
+				vertices.append(&mut vec![
+					pos.x + (glyph.offset.x as f32 + if part.italic { italic } else { 0.0 }) * scale,
+					pos.y + (glyph.offset.y as f32 - self.font.base as f32) * scale,
+					glyph.rect.left() / self.font.bitmapSize.x,
+					glyph.rect.top() / self.font.bitmapSize.y,
+	
+					pos.x + (glyph.offset.x as f32 + glyph.rect.width() + if part.italic { italic } else { 0.0 }) * scale,
+					pos.y + (glyph.offset.y as f32 - self.font.base as f32) * scale,
+					glyph.rect.right() / self.font.bitmapSize.x,
+					glyph.rect.top() / self.font.bitmapSize.y,
+	
+					pos.x + (glyph.offset.x as f32 + glyph.rect.width()) * scale,
+					pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale,
+					glyph.rect.right() / self.font.bitmapSize.x,
+					glyph.rect.bottom() / self.font.bitmapSize.y,
+	
+					pos.x + (glyph.offset.x as f32) * scale,
+					pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale,
+					glyph.rect.left() / self.font.bitmapSize.x,
+					glyph.rect.bottom() / self.font.bitmapSize.y
+				]);
+				pos.x += glyph.advance as f32 * scale;
+			}
+			if part.newline
+			{
+				pos.x = 0.0;
+				pos.y += self.font.height as f32;
+			}
 		}
 
 		unsafe
