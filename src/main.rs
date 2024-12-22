@@ -1,7 +1,7 @@
 #![allow(dead_code, non_snake_case, non_upper_case_globals, unused_must_use)]
 mod ae3d;
 
-use ae3d::{graphics::Mesh::Mesh, Window::Window};
+use ae3d::{graphics::Mesh::*, Window::Window};
 
 fn main()
 {
@@ -16,15 +16,7 @@ fn main()
 	// let mut m = Mesh::new();
 	// m.loadFromFile("res/models/quads.obj".to_string());
 
-	let mut utah = Mesh::new();
-	utah.loadFromFile("res/models/utah.obj".to_string());
-
-	// let mut light = Mesh::new();
-	// light.loadFromFile("res/models/cube.obj".to_string());
-	// light.setPosition(glam::vec3(-25.0, 35.0, 25.0));
-	// light.rotateY(45.0 - 180.0);
-	// light.rotateZ(45.0);
-	// light.setApplyLighting(false);
+	let mut utah = NewMesh::new("res/models/utah.obj".to_string()).expect("Failed to load model");
 
 	let mut cam = ae3d::Camera::Camera::perspective(ae3d::Camera::CameraMode::FirstPerson, 45.0);
 	cam.translate(glam::vec3(-25.0, 40.0, 35.0));
@@ -34,14 +26,13 @@ fn main()
 	let moveSpeed = 10.0;
 	let rotateSpeed = 75.0;
 
-	let mut ui = ae3d::graphics::Shader::Shader::new();
-	ui.load("res/shaders/ui.vert".to_string(), "res/shaders/ui.frag".to_string());
+	// let mut ui = ae3d::graphics::Shader::Shader::new();
+	// ui.load("res/shaders/ui.vert".to_string(), "res/shaders/ui.frag".to_string());
+	// let proj = glam::Mat4::orthographic_rh_gl(0.0, Window::getSize().x, Window::getSize().y, 0.0, 0.1, 100.0);
 
-	let proj = glam::Mat4::orthographic_rh_gl(0.0, Window::getSize().x, Window::getSize().y, 0.0, 0.1, 100.0);
-
-	let mut txt = ae3d::graphics::Text::Text::new();
-	txt.loadFont("res/fonts/b52.fnt".to_string());
-	txt.setString("^(*)Hello ^(/)world".to_string());
+	// let mut txt = ae3d::graphics::Text::Text::new();
+	// txt.loadFont("res/fonts/b52.fnt".to_string());
+	// txt.setString("^(*)Hello ^(/)world".to_string());
 
 	unsafe
 	{
@@ -108,12 +99,11 @@ fn main()
 		Window::clear();
 		// cam.draw(&mut skybox);
 		// cam.draw(&mut m);
-		cam.draw(&mut utah);
-		// cam.draw(&mut light);
+		// cam.draw(&mut utah);
 
-		ui.activate();
-		ui.setMat4("projection".to_string(), &proj.to_cols_array());
-		txt.draw(&mut ui);
+		// ui.activate();
+		// ui.setMat4("projection".to_string(), &proj.to_cols_array());
+		// txt.draw(&mut ui);
 		
 		Window::display();
 	}

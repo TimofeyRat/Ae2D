@@ -202,8 +202,6 @@ impl Text
 			gl::GenVertexArrays(1, &mut vao);
 		}
 
-		println!("{vao}, {vbo}");
-
 		Self
 		{
 			font: Font::new(),

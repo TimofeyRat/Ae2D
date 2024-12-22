@@ -441,3 +441,99 @@ impl Mesh
 		self.light
 	}
 }
+
+pub struct MaterialUsage
+{
+	tex: u32,
+	ambient: glam::Vec3,
+	diffuse: glam::Vec3,
+	specular: glam::Vec3,
+	start: i32,
+	count: isize
+}
+
+impl MaterialUsage
+{
+	pub fn new() -> Self
+	{
+		Self
+		{
+			tex: 0,
+			ambient: glam::Vec3::ZERO,
+			diffuse: glam::Vec3::ZERO,
+			specular: glam::Vec3::ZERO,
+			count: 0,
+			start: 0
+		}
+	}
+
+	pub fn loadMaterial(&mut self, mtl: std::sync::Arc<obj::Material>)
+	{
+		if mtl.name.is_empty() { return; }
+
+		if mtl.ka.is_some()
+		{
+			let arr = mtl.ka.unwrap();
+			self.ambient = glam::vec3(arr[0], arr[1], arr[2]);
+		}
+		if mtl.kd.is_some()
+		{
+			let arr = mtl.kd.unwrap();
+			self.diffuse = glam::vec3(arr[0], arr[1], arr[2]);
+		}
+		if mtl.ks.is_some()
+		{
+			let arr = mtl.ks.unwrap();
+			self.specular = glam::vec3(arr[0], arr[1], arr[2]);
+		}
+
+		if mtl.map_kd.is_some()
+		{
+			self.tex = crate::ae3d::Assets::getTexture(mtl.map_kd.as_ref().unwrap().clone());
+		}
+	}
+}
+
+pub struct NewMesh
+{
+	vertices: Vec<f32>,
+	vbo: VBO,
+	vao: VAO,
+	polygons: Vec<MaterialUsage>,
+	name: String
+}
+
+impl NewMesh
+{
+	pub fn new(path: String) -> Option<Self>
+	{
+		let result = obj::Obj::load(path.clone());
+		if result.is_err() { println!("Failed to load model from {path}: {}", result.err().unwrap()); return None; }
+
+		let mut obj = result.unwrap();
+		obj.load_mtls();
+
+		let mut mesh = NewMesh
+		{
+			vertices: vec![],
+			vbo: VBO::new(),
+			vao: VAO::new(),
+			polygons: vec![],
+			name: String::new()
+		};
+
+		for o in &obj.data.objects
+		{
+			mesh.name = o.name.clone();
+			for g in &o.groups
+			{
+				for p in &g.polys
+				{
+					// p.0
+				}
+			}
+		}
+
+		Some(mesh)
+	}
+}
