@@ -45,7 +45,10 @@ The main config file is located at `res/global/config.json`. It contains followi
 	- `fullscreen` - fullscreen window.
 - `size` - Size of the window. Should contain width and height of the screen in pixels, i.e. `{ "w": 1920, "h": 1080}`. It won't be used with the `fullscreen` style.
 ### `optional` Entries:
-- `position` - Position of the window. Should contain X and Y coordinates, i.e `{ "x"; 860, "y": 540 }`. If not provided, the window will appear in the center of the screen.
+- `position` - Position of the window. Should contain X and Y coordinates, i.e `{ "x"; 860, "y": 540 }`. If not provided, the window will appear in the center of the screen;
+- `hideCursor [true/false]` - Show/hide cursor;
+- `lockCursor [true/false]` - Lock/unlock the cursor in center of the window;
+- `vsync [true/false]` - Enable/disable V-Sync.
 
 ### Color palette
 Ae3D lets you to [color](#text-coloring) your texts, but for that you need a palette. It can be defined in `res/global/colors.json` file as follows:

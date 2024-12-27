@@ -297,7 +297,7 @@ impl Window
 			i.window.as_ref().unwrap(),
 			Window::getSize().x as i32 / 2,
 			Window::getSize().y as i32 / 2
-	); }
+		); }
 	}
 
 	pub fn clear()
