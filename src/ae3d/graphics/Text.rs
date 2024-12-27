@@ -124,8 +124,6 @@ impl Font
 			}
 		}
 
-		println!("Loaded {} chars from {path}", font.glyphs.len());
-
 		font
 	}
 
@@ -233,6 +231,8 @@ impl Text
 			color: sdl2::pixels::Color::WHITE
 		};
 
+		self.text.clear();
+
 		let chars = str.as_str();
 		let mut index = 0;
 		while index < chars.len()
@@ -284,8 +284,6 @@ impl Text
 		}
 		self.text.push(part);
 
-		println!("{:?}", self.text);
-		
 		self.reload = true;
 	}
 
@@ -314,7 +312,7 @@ impl Text
 	{
 		let mut vertices: Vec<f32> = vec![];
 
-		let mut pos = glam::Vec2::splat(100.0);
+		let mut pos = glam::Vec2::ZERO;
 
 		let scale = self.fontSize as f32 / self.font.height as f32;
 		let italic = self.font.height as f32 * 10.0_f32.to_radians().sin();
@@ -361,7 +359,7 @@ impl Text
 				gl::ARRAY_BUFFER,
 				(vertices.len() * size_of::<f32>()) as isize,
 				vertices.as_ptr() as *const _,
-				gl::STATIC_DRAW
+				gl::DYNAMIC_DRAW
 			);
 
 			gl::BindVertexArray(self.vao);

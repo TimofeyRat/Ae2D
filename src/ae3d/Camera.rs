@@ -13,6 +13,7 @@ pub struct Camera
 	pitch: f32,
 	shader: super::graphics::Shader::Shader,
 	up: glam::Vec3,
+	front: glam::Vec3,
 	projection: [f32; 16],
 	view: [f32; 16],
 	reloadProjection: bool,
@@ -39,6 +40,7 @@ impl Camera
 			reloadView: true,
 			shader: super::graphics::Shader::Shader::new(),
 			up: glam::vec3(0.0, 1.0, 0.0),
+			front: glam::vec3(0.0, 0.0, 1.0),
 			view: [0.0; 16],
 			direction: glam::vec3(0.0, 0.0, 1.0)
 		}
@@ -71,7 +73,7 @@ impl Camera
 		self.projection = glam::Mat4::perspective_rh_gl(
 			self.fov,
 			s.x / s.y,
-			0.01, 1000.0
+			0.01, 2000.0
 		).to_cols_array();
 		self.reloadProjection = false;
 	}
@@ -113,10 +115,9 @@ impl Camera
 
 	pub fn fly(&mut self, factor: glam::Vec3)
 	{
-		let dir = glam::vec3(self.direction.x, 0.0, self.direction.z);
-		self.pos = self.pos + dir * factor.z;
-		self.pos = self.pos + self.up * factor.y;
-		self.pos = self.pos + glam::Vec3::cross(dir, self.up) * factor.x;
+		self.pos += self.front * factor.z;
+		self.pos += self.up * factor.y;
+		self.pos += glam::Vec3::cross(self.front, self.up) * factor.x;
 		self.reloadView = true;
 	}
 
@@ -125,10 +126,17 @@ impl Camera
 		self.yaw += factor.x;
 		self.pitch -= factor.y;
 		self.pitch = self.pitch.clamp(-89.0, 89.0);
+
 		self.direction.x = self.yaw.to_radians().cos() * self.pitch.to_radians().cos();
 		self.direction.y = self.pitch.to_radians().sin();
 		self.direction.z = self.yaw.to_radians().sin() * self.pitch.to_radians().cos();
 		self.direction = glam::Vec3::normalize(self.direction);
+		
+		self.front.x = self.yaw.to_radians().cos();
+		self.front.y = 0.0;
+		self.front.z = self.yaw.to_radians().sin();
+		self.front = self.front.normalize();
+		
 		self.reloadView = true;
 	}
 

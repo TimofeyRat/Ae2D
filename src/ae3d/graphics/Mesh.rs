@@ -183,30 +183,29 @@ impl Drop for VAO
 	}
 }
 
-struct Polygon
+#[derive(Debug)]
+pub struct MaterialUsage
 {
-	vertices: Vec<f32>,
-	vbo: VBO,
-	vao: VAO,
-	tex0: u32,
+	tex: u32,
 	ambient: glam::Vec3,
 	diffuse: glam::Vec3,
-	specular: glam::Vec3
+	specular: glam::Vec3,
+	start: i32,
+	count: i32
 }
 
-impl Polygon
+impl MaterialUsage
 {
 	pub fn new() -> Self
 	{
-		Polygon
+		Self
 		{
-			vao: VAO::new(),
-			vbo: VBO::new(),
-			vertices: vec![],
-			tex0: 0,
-			ambient: glam::vec3(0.0, 0.0, 0.0),
-			diffuse: glam::vec3(0.0, 0.0, 0.0),
-			specular: glam::vec3(0.0, 0.0, 0.0)
+			tex: 0,
+			ambient: glam::Vec3::ZERO,
+			diffuse: glam::Vec3::ZERO,
+			specular: glam::Vec3::ZERO,
+			count: 0,
+			start: 0
 		}
 	}
 
@@ -214,145 +213,100 @@ impl Polygon
 	{
 		if mtl.name.is_empty() { return; }
 
-		if mtl.ka.is_some()
-		{
-			let arr = mtl.ka.unwrap();
-			self.ambient = glam::vec3(arr[0], arr[1], arr[2]);
-		}
-		if mtl.kd.is_some()
-		{
-			let arr = mtl.kd.unwrap();
-			self.diffuse = glam::vec3(arr[0], arr[1], arr[2]);
-		}
-		if mtl.ks.is_some()
-		{
-			let arr = mtl.ks.unwrap();
-			self.specular = glam::vec3(arr[0], arr[1], arr[2]);
-		}
-
-		if mtl.map_kd.is_some()
-		{
-			self.tex0 = crate::ae3d::Assets::getTexture(mtl.map_kd.as_ref().unwrap().clone());
-		}
-	}
-
-	pub fn generate(data: &obj::ObjData, base: obj::SimplePolygon, mtl: Option<obj::ObjMaterial>) -> Self
-	{
-		let mut p = Polygon::new();
-
-		for v in base.0
-		{
-			let pos = data.position.get(v.0).unwrap_or(&[0.0, 0.0, 0.0]);
-			let uv = data.texture.get(v.1.unwrap_or(usize::MAX)).unwrap_or(&[0.0, 0.0]);
-			let normal = data.normal.get(v.2.unwrap_or(usize::MAX)).unwrap_or(&[0.0, 0.0, 0.0]);
-
-			p.vertices.push(*pos.get(0).unwrap());
-			p.vertices.push(*pos.get(1).unwrap());
-			p.vertices.push(*pos.get(2).unwrap());
-			p.vertices.push(*uv.get(0).unwrap());
-			p.vertices.push(*uv.get(1).unwrap());
-			p.vertices.push(*normal.get(0).unwrap());
-			p.vertices.push(*normal.get(1).unwrap());
-			p.vertices.push(*normal.get(2).unwrap());
-		}
-
-		p.vbo.set(&p.vertices);
-		p.vao.gen();
-
-		if mtl.is_some()
-		{
-			match mtl.unwrap()
-			{
-				obj::ObjMaterial::Mtl(x) => { p.loadMaterial(x); }
-				obj::ObjMaterial::Ref(x) =>
-				{
-					for mtl in data.material_libs.clone()
-					{
-						for m in mtl.materials.clone()
-						{
-							if m.name == x
-							{
-								p.loadMaterial(m);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		p
-	}
-
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
-	{
-		shader.setVec3("ambient".to_string(), self.ambient.to_array());
-		shader.setVec3("diffuse".to_string(), self.diffuse.to_array());
-		shader.setVec3("specular".to_string(), self.specular.to_array());
-		unsafe
-		{
-			gl::ActiveTexture(gl::TEXTURE0);
-			gl::BindTexture(gl::TEXTURE_2D, self.tex0);
-		}
-		shader.setInt("tex".to_string(), 0);
-		shader.setBool("enableTexture".to_string(), self.tex0 != 0);
-		self.vao.bind();
-		unsafe
-		{
-			let size = (self.vertices.len() / 8) as i32;
-			gl::DrawArrays(
-				if size == 3 { gl::TRIANGLES } else { gl::QUADS },
-				0,
-				size
-			);
-			let err = gl::GetError();
-			if err != 0 { println!("{err}"); }
-		}
+		self.ambient = glam::Vec3::from_array(mtl.ka.unwrap_or([0.0; 3]));
+		self.diffuse = glam::Vec3::from_array(mtl.kd.unwrap_or([0.0; 3]));
+		self.specular = glam::Vec3::from_array(mtl.ks.unwrap_or([0.0; 3]));
+		self.tex = crate::ae3d::Assets::getTexture(mtl.map_kd.as_ref().unwrap_or(&String::new()).clone());
 	}
 }
 
 pub struct Mesh
 {
+	vertices: Vec<f32>,
+	vbo: VBO,
+	vao: VAO,
+	polygons: Vec<MaterialUsage>,
+	name: String,
+	matrix: [f32; 16],
 	pos: glam::Vec3,
 	scale: glam::Vec3,
 	rotation: glam::Vec3,
-	matrix: [f32; 16],
-	reloadMatrix: bool,
-	polygons: Vec<Polygon>,
-	name: String,
-	light: bool
+	lighting: bool,
+	reloadMatrix: bool
 }
 
 impl Mesh
 {
-	pub fn new() -> Self
+	pub fn new(path: String) -> Option<Self>
 	{
-		Self
+		let result = obj::Obj::load(path.clone());
+		if result.is_err() { println!("Failed to load model from {path}: {}", result.err().unwrap()); return None; }
+
+		let mut obj = result.unwrap();
+		obj.load_mtls();
+
+		let mut mesh = Mesh
 		{
-			pos: glam::Vec3::new(0.0, 0.0, 0.0),
-			scale: glam::Vec3::new(1.0, 1.0, 1.0),
-			rotation: glam::Vec3::new(0.0, 0.0, 0.0),
-			matrix: [0.0; 16],
-			reloadMatrix: true,
+			vertices: vec![],
+			vbo: VBO::new(),
+			vao: VAO::new(),
 			polygons: vec![],
 			name: String::new(),
-			light: true
-		}
-	}
+			lighting: true,
+			matrix: glam::Mat4::IDENTITY.to_cols_array(),
+			pos: glam::Vec3::ZERO,
+			reloadMatrix: true,
+			rotation: glam::Vec3::ZERO,
+			scale: glam::Vec3::ONE
+		};
 
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
-	{
-		if self.reloadMatrix { self.updateMatrix(); }
-		shader.setMat4("model".to_string(), &self.matrix);
-		shader.setVec3("ambient".to_string(), [0.0; 3]);
-		shader.setVec3("diffuse".to_string(), [0.0; 3]);
-		shader.setInt("enableLight".to_string(), self.light as i32);
-		for p in self.polygons.iter_mut()
+		let mut index = 0;
+
+		for o in &obj.data.objects
 		{
-			p.draw(shader);
+			mesh.name = o.name.clone();
+			for g in &o.groups
+			{
+				let mut mu = MaterialUsage::new();
+				match g.material.as_ref().unwrap_or(&obj::ObjMaterial::Ref(String::new()))
+				{
+					obj::ObjMaterial::Mtl(x) => mu.loadMaterial(x.clone()),
+					obj::ObjMaterial::Ref(_) => {}
+				}
+
+				mu.start = index;
+
+				for p in &g.polys
+				{
+					let x = &p.0;
+
+					mesh.vertices.append(&mut obj.data.position[x[0].0].to_vec());
+					mesh.vertices.append(&mut obj.data.texture.get(x[0].1.unwrap_or(usize::MAX)).unwrap_or(&[0.0; 2]).to_vec());
+					mesh.vertices.append(&mut obj.data.normal.get(x[0].2.unwrap_or(usize::MAX)).unwrap_or(&[0.0; 3]).to_vec());
+					
+					mesh.vertices.append(&mut obj.data.position[x[1].0].to_vec());
+					mesh.vertices.append(&mut obj.data.texture.get(x[1].1.unwrap_or(usize::MAX)).unwrap_or(&[0.0; 2]).to_vec());
+					mesh.vertices.append(&mut obj.data.normal.get(x[1].2.unwrap_or(usize::MAX)).unwrap_or(&[0.0; 3]).to_vec());
+
+					mesh.vertices.append(&mut obj.data.position[x[2].0].to_vec());
+					mesh.vertices.append(&mut obj.data.texture.get(x[2].1.unwrap_or(usize::MAX)).unwrap_or(&[0.0; 2]).to_vec());
+					mesh.vertices.append(&mut obj.data.normal.get(x[2].2.unwrap_or(usize::MAX)).unwrap_or(&[0.0; 3]).to_vec());
+					
+					index += 3;
+				}
+
+				mu.count = index - mu.start;
+
+				mesh.polygons.push(mu);
+				mesh.vbo.set(&mesh.vertices);
+				mesh.vao.gen();
+			}
 		}
+
+		Some(mesh)
 	}
 
-	fn updateMatrix(&mut self)
+	pub fn updateMatrix(&mut self)
 	{
 		let mut model = glam::Mat4::IDENTITY;
 		model = model.mul_mat4(&glam::Mat4::from_translation(self.pos));
@@ -362,6 +316,31 @@ impl Mesh
 		model = model.mul_mat4(&glam::Mat4::from_scale(self.scale));
 		self.matrix = model.to_cols_array();
 		self.reloadMatrix = false;
+	}
+
+	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
+	{
+		if self.reloadMatrix { self.updateMatrix(); }
+		shader.setMat4("model".to_string(), &self.matrix);
+		shader.setBool("enableLight".to_string(), self.lighting);
+		self.vao.bind();
+
+		for mu in &self.polygons
+		{
+			shader.setVec3("ambient".to_string(), mu.ambient.to_array());
+			shader.setVec3("diffuse".to_string(), mu.diffuse.to_array());
+			shader.setVec3("specular".to_string(), mu.specular.to_array());
+			unsafe
+			{
+				gl::ActiveTexture(gl::TEXTURE0);
+				gl::BindTexture(gl::TEXTURE_2D, mu.tex);
+				shader.setInt("tex".to_string(), 0);
+				shader.setBool("enableTexture".to_string(), mu.tex != 0);
+				gl::DrawArrays(gl::TRIANGLES, mu.start, mu.count);
+				let err = gl::GetError();
+				if err != 0 { println!("{err}"); }
+			}
+		}
 	}
 	
 	pub fn translate(&mut self, factor: glam::Vec3)
@@ -411,129 +390,9 @@ impl Mesh
 		self.rotation = x;
 		self.reloadMatrix = true;
 	}
-	
-	pub fn loadFromFile(&mut self, path: String)
+
+	pub fn setLighting(&mut self, light: bool)
 	{
-		let result = obj::Obj::load(path);
-		if result.is_err() { println!("Failed to load model: {}", result.err().unwrap()); return; }
-		let mut obj = result.unwrap();
-		obj.load_mtls();
-		for o in &obj.data.objects
-		{
-			self.name = o.name.clone();
-			for g in &o.groups
-			{
-				for p in &g.polys
-				{
-					self.polygons.push(Polygon::generate(&obj.data, p.clone(), g.material.clone()));
-				}
-			}
-		}
-	}
-
-	pub fn setApplyLighting(&mut self, light: bool)
-	{
-		self.light = light;
-	}
-
-	pub fn shouldApplyLighting(&mut self) -> bool
-	{
-		self.light
-	}
-}
-
-pub struct MaterialUsage
-{
-	tex: u32,
-	ambient: glam::Vec3,
-	diffuse: glam::Vec3,
-	specular: glam::Vec3,
-	start: i32,
-	count: isize
-}
-
-impl MaterialUsage
-{
-	pub fn new() -> Self
-	{
-		Self
-		{
-			tex: 0,
-			ambient: glam::Vec3::ZERO,
-			diffuse: glam::Vec3::ZERO,
-			specular: glam::Vec3::ZERO,
-			count: 0,
-			start: 0
-		}
-	}
-
-	pub fn loadMaterial(&mut self, mtl: std::sync::Arc<obj::Material>)
-	{
-		if mtl.name.is_empty() { return; }
-
-		if mtl.ka.is_some()
-		{
-			let arr = mtl.ka.unwrap();
-			self.ambient = glam::vec3(arr[0], arr[1], arr[2]);
-		}
-		if mtl.kd.is_some()
-		{
-			let arr = mtl.kd.unwrap();
-			self.diffuse = glam::vec3(arr[0], arr[1], arr[2]);
-		}
-		if mtl.ks.is_some()
-		{
-			let arr = mtl.ks.unwrap();
-			self.specular = glam::vec3(arr[0], arr[1], arr[2]);
-		}
-
-		if mtl.map_kd.is_some()
-		{
-			self.tex = crate::ae3d::Assets::getTexture(mtl.map_kd.as_ref().unwrap().clone());
-		}
-	}
-}
-
-pub struct NewMesh
-{
-	vertices: Vec<f32>,
-	vbo: VBO,
-	vao: VAO,
-	polygons: Vec<MaterialUsage>,
-	name: String
-}
-
-impl NewMesh
-{
-	pub fn new(path: String) -> Option<Self>
-	{
-		let result = obj::Obj::load(path.clone());
-		if result.is_err() { println!("Failed to load model from {path}: {}", result.err().unwrap()); return None; }
-
-		let mut obj = result.unwrap();
-		obj.load_mtls();
-
-		let mut mesh = NewMesh
-		{
-			vertices: vec![],
-			vbo: VBO::new(),
-			vao: VAO::new(),
-			polygons: vec![],
-			name: String::new()
-		};
-
-		for o in &obj.data.objects
-		{
-			mesh.name = o.name.clone();
-			for g in &o.groups
-			{
-				for p in &g.polys
-				{
-					// p.0
-				}
-			}
-		}
-
-		Some(mesh)
+		self.lighting = light;
 	}
 }

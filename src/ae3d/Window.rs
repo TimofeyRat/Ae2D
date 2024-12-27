@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 #[derive(Clone, Copy)]
 pub enum KeyAction
 {
@@ -45,9 +47,6 @@ pub struct Window
 	events: sdl2::EventPump,
 	running: bool,
 	clearColor: sdl2::pixels::Color,
-	deltaTime: f32,
-	currentTime: f32,
-	lastTime: f32,
 	timer: sdl2::TimerSubsystem,
 	keyEvent: Option<KeyEvent>,
 	mouseEvent: Option<MouseEvent>,
@@ -55,7 +54,12 @@ pub struct Window
 	palette: Vec<Color>,
     gl: Option<sdl2::video::GLContext>,
 	textureCreator: Option<sdl2::render::TextureCreator<sdl2::surface::SurfaceContext<'static>>>,
-	tcCanvas: sdl2::render::SurfaceCanvas<'static>
+	tcCanvas: sdl2::render::SurfaceCanvas<'static>,
+	deltaTime: f32,
+	lastTime: std::time::Instant,
+	mouse: sdl2::mouse::MouseUtil,
+	lockCursor: bool,
+	mouseDelta: glam::Vec2,
 }
 
 impl Window
@@ -72,8 +76,7 @@ impl Window
 			running: true,
 			clearColor: sdl2::pixels::Color::BLACK,
 			deltaTime: 0.0,
-			currentTime: 0.0,
-			lastTime: 0.0,
+			lastTime: Instant::now(),
 			timer: c.timer().unwrap(),
 			keyEvent: None,
 			mouseEvent: None,
@@ -81,7 +84,10 @@ impl Window
 			palette: Vec::new(),
             gl: None,
 			textureCreator: None,
-			tcCanvas: sdl2::surface::Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap().into_canvas().unwrap()
+			tcCanvas: sdl2::surface::Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap().into_canvas().unwrap(),
+			mouse: c.mouse(),
+			lockCursor: false,
+			mouseDelta: glam::Vec2::ZERO,
 		}
 	}
 
@@ -105,7 +111,10 @@ impl Window
 		let mut size = glam::Vec2::ZERO;
 		let mut style = String::from("");
 		let mut pos = glam::Vec2::splat(-127.0);
-
+		let mut hideCursor = false;
+		let mut lockCursor = false;
+		let mut vsync = true;
+		
 		for section in f.unwrap().entries()
 		{
 			if section.0 == "init"
@@ -136,6 +145,9 @@ impl Window
 							if dim.0 == "y" { pos.y = dim.1.as_f32().unwrap(); }
 						}
 					}
+					if attr.0 == "hideCursor" { hideCursor = attr.1.as_bool().unwrap_or(false); }
+					if attr.0 == "lockCursor" { lockCursor = attr.1.as_bool().unwrap_or(false); }
+					if attr.0 == "vsync" { vsync = attr.1.as_bool().unwrap_or(true); }
 				}
 			}
 			if section.0 == "custom" {}
@@ -159,12 +171,13 @@ impl Window
 
 		i.window = Some(builder.opengl().build().unwrap());
 
-		i.lastTime = i.timer.performance_counter() as f32;
-		i.currentTime = i.lastTime + 1.0;
-
 		i.gl = Some(i.window.as_mut().unwrap().gl_create_context().unwrap());
 		gl::load_with(|name| i.video.gl_get_proc_address(name) as *const _);
-		i.video.gl_set_swap_interval(sdl2::video::SwapInterval::VSync);
+		
+		i.video.gl_set_swap_interval(if vsync { sdl2::video::SwapInterval::VSync } else { sdl2::video::SwapInterval::Immediate });
+		i.mouse.show_cursor(!hideCursor);
+		i.lockCursor = lockCursor;
+
 		unsafe
 		{
 			gl::Enable(gl::DEPTH_TEST);
@@ -210,10 +223,11 @@ impl Window
 		let i = Window::getInstance();
 		i.keyEvent = None;
 		i.mouseEvent = None;
+		i.mouseDelta = glam::Vec2::ZERO;
 
-		i.lastTime = i.currentTime;
-		i.currentTime = i.timer.performance_counter() as f32;
-		i.deltaTime = (i.currentTime - i.lastTime) / i.timer.performance_frequency() as f32;
+		i.deltaTime = i.lastTime.elapsed().as_secs_f32();
+		i.lastTime = std::time::Instant::now();
+
 		for event in i.events.poll_iter()
 		{
 			match event
@@ -270,9 +284,20 @@ impl Window
 						_ => {}
 					}
 				},
+				sdl2::event::Event::MouseMotion { x, y, xrel, yrel, .. } =>
+				{
+					if x == Window::getSize().x as i32 / 2 && y == Window::getSize().y as i32 / 2 { continue; }
+					i.mouseDelta = glam::vec2(xrel as f32, yrel as f32);
+				},
 				_ => {}
 			}
 		}
+
+		if i.lockCursor { i.context.mouse().warp_mouse_in_window(
+			i.window.as_ref().unwrap(),
+			Window::getSize().x as i32 / 2,
+			Window::getSize().y as i32 / 2
+	); }
 	}
 
 	pub fn clear()
@@ -349,4 +374,22 @@ impl Window
 	pub fn close() { Window::getInstance().running = false; }
 	pub fn getDeltaTime() -> f32 { Window::getInstance().deltaTime }
     pub fn getContext() -> &'static mut sdl2::video::GLContext { Window::getInstance().gl.as_mut().unwrap() }
+	pub fn getMouseDelta() -> glam::Vec2 { Window::getInstance().mouseDelta }
+
+	pub fn getGL() -> String
+	{
+		unsafe
+		{
+			let v = gl::GetString(gl::VERSION);
+			let mut size: isize = 0;
+			let mut vector: Vec<u8> = vec![];
+			while v.offset(size).read() != 0
+			{
+				vector.push(v.offset(size).read());
+				size += 1;
+			}
+			String::from_utf8(vector).unwrap()
+		}
+	}
+
 }
