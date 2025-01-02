@@ -34,12 +34,10 @@ impl Font
 	pub fn load(path: String) -> Self
 	{
 		let mut font = Font::new();
-		let src = crate::ae3d::Assets::openFile(path.clone());
-		if src.is_none() { println!("Failed to load font from {path}"); return font; }
-		let doc = spex::parsing::XmlReader::parse_auto(src.unwrap());
-		if doc.is_err() { println!("Failed to parse font from {path}: {}", doc.err().unwrap()); return font; }
-
-		for node in doc.unwrap().root().elements()
+		let src = crate::ae3d::Assets::readXML(path.clone());
+		if src.is_none() { return font; }
+		
+		for node in src.unwrap().elements()
 		{
 			let name = node.name().local_part();
 			if name == "info"
@@ -178,43 +176,42 @@ struct StyledText
 pub struct Text
 {
 	font: Font,
-	position: glam::Vec2,
 	text: Vec<StyledText>,
 	vertices: i32,
 	reload: bool,
 	vbo: u32,
 	vao: u32,
-	fontSize: u8
+	fontSize: u8,
+	dimensions: glam::Vec2
 }
 
 impl Text
 {
 	pub fn new() -> Self
 	{
-		let mut vao = 0;
-		let mut vbo = 0;
-
-		unsafe
-		{
-			gl::GenBuffers(1, &mut vbo);
-			gl::GenVertexArrays(1, &mut vao);
-		}
-
 		Self
 		{
 			font: Font::new(),
-			position: glam::Vec2::ZERO,
 			text: vec![],
-			vbo,
-			vao,
+			vbo: 0,
+			vao: 0,
 			vertices: 0,
 			reload: true,
-			fontSize: 48
+			fontSize: 48,
+			dimensions: glam::Vec2::ZERO
 		}
 	}
 
 	pub fn loadFont(&mut self, path: String)
 	{
+		if self.vao == 0 && self.vbo == 0
+		{
+			unsafe
+			{
+				gl::GenVertexArrays(1, &mut self.vao);
+				gl::GenBuffers(1, &mut self.vbo);
+			}
+		}
 		self.font = Font::load(path);
 	}
 
@@ -233,13 +230,13 @@ impl Text
 
 		self.text.clear();
 
-		let chars = str.as_str();
+		let chars: Vec<char> = str.as_str().chars().collect();
 		let mut index = 0;
 		while index < chars.len()
 		{
-			let c = &chars[index..index+1];
+			let c = *chars.get(index).unwrap();
 
-			if c == "^" && chars.get(index+1..index+2).unwrap_or("") == "("
+			if c == '^' && *chars.get(index + 1).unwrap_or(&' ') == '('
 			{
 				if !part.text.is_empty()
 				{
@@ -258,9 +255,9 @@ impl Text
 				let mut raw = String::new();
 
 				index += 2;
-				while chars.get(index..index+1).unwrap_or(")") != ")"
+				while *chars.get(index).unwrap_or(&')') != ')'
 				{
-					raw.push_str(chars.get(index..index+1).unwrap_or(""));
+					raw.push(*chars.get(index).unwrap_or(&' '));
 					index += 1;
 				}
 
@@ -277,8 +274,8 @@ impl Text
 					}
 				}
 			}
-			else if c == "\n" { part.newline = true; }
-			else { part.text.push_str(c); }
+			else if c == '\n' { part.newline = true; }
+			else { part.text.push(c); }
 			
 			index += 1;
 		}
@@ -287,18 +284,18 @@ impl Text
 		self.reload = true;
 	}
 
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
+	pub fn draw(&mut self, shader: &mut super::Shader::Shader, base: &glam::Mat4)
 	{
 		if self.reload { self.update(); }
 
 		unsafe
 		{
 			gl::BindVertexArray(self.vao);
-
+			
 			gl::ActiveTexture(gl::TEXTURE0);
 			gl::BindTexture(gl::TEXTURE_2D, self.font.page);
 			shader.setInt("tex".to_string(), 0);
-
+			shader.setMat4("model".to_string(), &base.to_cols_array());
 
 			gl::DrawArrays(
 				gl::QUADS,
@@ -310,6 +307,7 @@ impl Text
 
 	pub fn update(&mut self)
 	{
+		self.dimensions = glam::Vec2::ZERO;
 		let mut vertices: Vec<f32> = vec![];
 
 		let mut pos = glam::Vec2::ZERO;
@@ -343,7 +341,16 @@ impl Text
 					glyph.rect.left() / self.font.bitmapSize.x,
 					glyph.rect.bottom() / self.font.bitmapSize.y
 				]);
+
+				self.dimensions.x = self.dimensions.x.max(
+					pos.x + (glyph.offset.x as f32 + glyph.rect.width() + if part.italic { italic } else { 0.0 }) * scale
+				);
+				self.dimensions.y = self.dimensions.y.max(
+					pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale
+				);
+
 				pos.x += glyph.advance as f32 * scale;
+
 			}
 			if part.newline
 			{
@@ -384,6 +391,39 @@ impl Text
 	{
 		self.fontSize = size;
 		self.reload = true;
+	}
+
+	pub fn getBounds(&mut self, base: &glam::Mat4) -> sdl2::rect::FRect
+	{
+		if self.reload { self.update(); }
+
+		let p1 = *base * glam::vec4(0.0, 0.0, 0.0, 1.0);
+		let p2 = *base * glam::vec4(self.dimensions.x, 0.0, 0.0, 1.0);
+		let p3 = *base * glam::vec4(self.dimensions.x, self.dimensions.y, 0.0, 1.0);
+		let p4 = *base * glam::vec4(0.0, self.dimensions.y, 0.0, 1.0);
+
+		let min = p1.min(p2).min(p3).min(p4);
+		let max = p1.max(p2).max(p3).max(p4);
+
+		sdl2::rect::FRect::new(min.x, min.y, max.x - min.x, max.y - min.y)
+	}
+
+	pub fn getString(&mut self) -> String
+	{
+		let mut out = String::new();
+
+		for part in &self.text
+		{
+			out += &part.text;
+		}
+		
+		out
+	}
+
+	pub fn getDimensions(&mut self) -> glam::Vec2
+	{
+		if self.reload { self.update(); }
+		self.dimensions
 	}
 }
 

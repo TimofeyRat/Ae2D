@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum KeyAction
 {
 	Pressed = 0,
@@ -17,7 +17,7 @@ impl PartialEq for KeyAction
 	}
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct KeyEvent
 {
 	pub key: sdl2::keyboard::Scancode,
@@ -60,6 +60,8 @@ pub struct Window
 	mouse: sdl2::mouse::MouseUtil,
 	lockCursor: bool,
 	mouseDelta: glam::Vec2,
+	ui: super::graphics::UI::UI,
+	vars: super::Programmable::Programmable
 }
 
 impl Window
@@ -88,6 +90,8 @@ impl Window
 			mouse: c.mouse(),
 			lockCursor: false,
 			mouseDelta: glam::Vec2::ZERO,
+			ui: super::graphics::UI::UI::new(),
+			vars: std::collections::HashMap::new()
 		}
 	}
 
@@ -115,6 +119,8 @@ impl Window
 		let mut lockCursor = false;
 		let mut vsync = true;
 		
+		let i = Window::getInstance();
+
 		for section in f.unwrap().entries()
 		{
 			if section.0 == "init"
@@ -150,10 +156,23 @@ impl Window
 					if attr.0 == "vsync" { vsync = attr.1.as_bool().unwrap_or(true); }
 				}
 			}
-			if section.0 == "custom" {}
+			if section.0 == "custom"
+			{
+				for var in section.1.members()
+				{
+					let mut name = String::new();
+					let mut value = super::Programmable::Variable::new();
+					for attr in var.entries()
+					{
+						if attr.0 == "name" { name = attr.1.as_str().unwrap().to_string(); }
+						if attr.0 == "num" { value.num = attr.1.as_f32().unwrap(); }
+						if attr.0 == "str" { value.string = attr.1.as_str().unwrap().to_string(); }
+					}
+					i.vars.insert(name, value);
+				}
+			}
 		}
 
-		let i = Window::getInstance();
 
 		let attr = i.video.gl_attr();
 		attr.set_context_profile(sdl2::video::GLProfile::Core);
@@ -189,6 +208,8 @@ impl Window
 		}
 
 		i.textureCreator = Some(i.tcCanvas.texture_creator());
+
+		i.ui.load("res/ui/mainMenu.xml".to_string());
 
 		Window::loadColors();
 	}
@@ -283,6 +304,7 @@ impl Window
 						},
 						_ => {}
 					}
+					i.ui.resize();
 				},
 				sdl2::event::Event::MouseMotion { x, y, xrel, yrel, .. } =>
 				{
@@ -375,6 +397,7 @@ impl Window
 	pub fn getDeltaTime() -> f32 { Window::getInstance().deltaTime }
     pub fn getContext() -> &'static mut sdl2::video::GLContext { Window::getInstance().gl.as_mut().unwrap() }
 	pub fn getMouseDelta() -> glam::Vec2 { Window::getInstance().mouseDelta }
+	pub fn getUI() -> &'static mut super::graphics::UI::UI { &mut Window::getInstance().ui }
 
 	pub fn getGL() -> String
 	{
@@ -392,4 +415,14 @@ impl Window
 		}
 	}
 
+	pub fn getMousePos() -> glam::IVec2
+	{
+		let s = Window::getInstance().events.mouse_state();
+		glam::ivec2(s.x(), s.y())
+	}
+
+	pub fn getVariable(name: String) -> super::Programmable::Variable
+	{
+		Window::getInstance().vars[&name].clone()
+	}
 }

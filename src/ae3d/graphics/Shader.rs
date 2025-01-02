@@ -56,6 +56,7 @@ impl Shader
 
 	fn link(&mut self)
 	{
+		if self.program != 0 { unsafe { gl::DeleteProgram(self.program); } }
 		unsafe
 		{
 			self.program = gl::CreateProgram();
@@ -107,6 +108,14 @@ impl Shader
 		}
 	}
 
+	pub fn setFloat(&mut self, name: String, value: f32)
+	{
+		unsafe
+		{
+			gl::Uniform1f(gl::GetUniformLocation(self.program, name.as_ptr() as *const i8), value);
+		}
+	}
+
 	pub fn setMat4(&mut self, name: String, value: &[f32; 16])
 	{
 		let cn = std::ffi::CString::new(name).unwrap();
@@ -154,6 +163,6 @@ impl Drop for Shader
 {
 	fn drop(&mut self)
 	{
-		unsafe { gl::DeleteProgram(self.program); }
+		if self.program != 0 { unsafe { gl::DeleteProgram(self.program); } }
 	}
 }

@@ -51,6 +51,16 @@ pub fn readJSON(path: String) -> Option<json::JsonValue>
 	Some(parsedRes.unwrap())
 }
 
+pub fn readXML(path: String) -> Option<spex::xml::Element>
+{
+	let src = openFile(path.clone());
+	if src.is_none() { println!("Failed to open XML file {path}"); return None; }
+	let doc = spex::parsing::XmlReader::parse_auto(src.unwrap());
+	if doc.is_err() { println!("Failed to parse XML file {path}"); return None; }
+
+	Some(doc.unwrap().root().clone())
+}
+
 fn loadTexture(path: String) -> u32
 {
 	let res = stb_image::image::load(path.clone());
@@ -90,8 +100,8 @@ fn loadTexture(path: String) -> u32
 
 			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
 			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
 
 			gl::TexImage2D(
 				gl::TEXTURE_2D,
