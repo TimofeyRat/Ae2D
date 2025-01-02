@@ -1,11 +1,15 @@
-use crate::ae3d::Window::Window;
+use crate::ae3d::{Programmable::{Programmable, Variable}, Window::Window};
+
+use super::{FrameAnimation::Animator, Text::Text, Transformable::Transformable2D};
 
 pub struct Image
 {
-	animation: super::FrameAnimation::Animator,
+	animation: Animator,
 	vao: u32,
 	vbo: u32,
-	vertices: [f32; 16],
+	vertices: [f32; 32],
+	ts: Transformable2D,
+	color: glam::Vec4
 }
 
 impl Image
@@ -14,10 +18,12 @@ impl Image
 	{
 		Self
 		{
-			animation: super::FrameAnimation::Animator::new(),
+			animation: Animator::new(),
 			vao: 0,
 			vbo: 0,
-			vertices: [0.0; 16],
+			vertices: [0.0; 32],
+			ts: Transformable2D::new(),
+			color: glam::Vec4::ONE
 		}
 	}
 
@@ -34,11 +40,18 @@ impl Image
 			gl::BindBuffer(gl::ARRAY_BUFFER, img.vbo);
 			gl::BindVertexArray(img.vao);
 			gl::EnableVertexAttribArray(0);
+			gl::EnableVertexAttribArray(1);
 			gl::VertexAttribPointer(
 				0, 4, gl::FLOAT,
 				gl::FALSE,
-				(4 * size_of::<f32>()) as i32,
+				(8 * size_of::<f32>()) as i32,
 				std::ptr::null()
+			);
+			gl::VertexAttribPointer(
+				1, 4, gl::FLOAT,
+				gl::FALSE,
+				(8 * size_of::<f32>()) as i32,
+				(4 * size_of::<f32>()) as *const _
 			);
 		}
 
@@ -50,20 +63,28 @@ impl Image
 		img
 	}
 
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader, base: &glam::Mat4)
+	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
 	{
 		self.animation.update();
 		let frame = self.animation.getCurrentFrame();
 		let size = self.animation.getFrameSize();
 		self.vertices = [
 			0.0, 0.0,						frame.left(), frame.top(),
+			self.color.x, self.color.y, self.color.z, self.color.w,
+
 			size.x as f32, 0.0,				frame.right(), frame.top(),
+			self.color.x, self.color.y, self.color.z, self.color.w,
+			
 			size.x as f32, size.y as f32,	frame.right(), frame.bottom(),
-			0.0, size.y as f32,				frame.left(), frame.bottom()
+			self.color.x, self.color.y, self.color.z, self.color.w,
+			
+			0.0, size.y as f32,				frame.left(), frame.bottom(),
+			self.color.x, self.color.y, self.color.z, self.color.w
 		];
 
 		shader.setInt("tex".to_string(), 0);
-		shader.setMat4("model".to_string(), &base.to_cols_array());
+		shader.setMat4("model".to_string(), &self.ts.getMatrix().to_cols_array());
+		shader.setBool("isImage".to_string(),	true);
 		unsafe
 		{
 			gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
@@ -81,18 +102,162 @@ impl Image
 		}
 	}
 
-	pub fn getBounds(&mut self, model: &glam::Mat4) -> sdl2::rect::FRect
+	pub fn getBounds(&mut self) -> sdl2::rect::FRect
 	{
 		let size = self.animation.getFrameSize();
-		let p1 = *model * glam::vec4(0.0, 0.0, 0.0, 1.0);
-		let p2 = *model * glam::vec4(size.x as f32, 0.0, 0.0, 1.0);
-		let p3 = *model * glam::vec4(size.x as f32, size.y as f32, 0.0, 1.0);
-		let p4 = *model * glam::vec4(0.0, size.y as f32, 0.0, 1.0);
+		let p1 = self.ts.getMatrix() * glam::vec4(0.0, 0.0, 0.0, 1.0);
+		let p2 = self.ts.getMatrix() * glam::vec4(size.x as f32, 0.0, 0.0, 1.0);
+		let p3 = self.ts.getMatrix() * glam::vec4(size.x as f32, size.y as f32, 0.0, 1.0);
+		let p4 = self.ts.getMatrix() * glam::vec4(0.0, size.y as f32, 0.0, 1.0);
 
 		let min = p1.min(p2).min(p3).min(p4);
 		let max = p1.max(p2).max(p3).max(p4);
 
 		sdl2::rect::FRect::new(min.x, min.y, max.x - min.x, max.y - min.y)
+	}
+
+	unsafe extern "C" fn setPosFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.script.to_number(-2) as f32;
+		let y = obj.script.to_number(-1) as f32;
+		obj.image.ts.setPosition(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn translateFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.script.to_number(-2) as f32;
+		let y = obj.script.to_number(-1) as f32;
+		obj.image.ts.translate(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn getPosFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.script.push_number(obj.image.ts.getPosition().x as f64);
+		obj.script.push_number(obj.image.ts.getPosition().y as f64);
+		2
+	}
+
+	unsafe extern "C" fn setRotFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.image.ts.setRotation(obj.script.to_number(-1) as f32);
+		0
+	}
+
+	unsafe extern "C" fn rotateFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.image.ts.rotate(obj.script.to_number(-1) as f32);
+		0
+	}
+
+	unsafe extern "C" fn getRotFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.script.push_number(obj.image.ts.getRotation() as f64);
+		1
+	}
+
+	unsafe extern "C" fn setScaleFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.script.to_number(-2) as f32;
+		let y = obj.script.to_number(-1) as f32;
+		obj.image.ts.setScale(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn scaleFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.script.to_number(-2) as f32;
+		let y = obj.script.to_number(-1) as f32;
+		obj.image.ts.scale(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn getScaleFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.script.push_number(obj.image.ts.getScale().x as f64);
+		obj.script.push_number(obj.image.ts.getScale().y as f64);
+		2
+	}
+
+	unsafe extern "C" fn setOriginFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.script.to_number(-2) as f32;
+		let y = obj.script.to_number(-1) as f32;
+		obj.image.ts.setOrigin(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn getOriginFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.script.push_number(obj.image.ts.getOrigin().x as f64);
+		obj.script.push_number(obj.image.ts.getOrigin().y as f64);
+		2
+	}
+
+	unsafe extern "C" fn boundsFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let bounds = obj.image.getBounds();
+		obj.script.push_number(bounds.left() as f64);
+		obj.script.push_number(bounds.top() as f64);
+		obj.script.push_number(bounds.width() as f64);
+		obj.script.push_number(bounds.height() as f64);
+		4
+	}
+
+	unsafe extern "C" fn sizeFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let size = obj.image.animation.getFrameSize();
+		obj.script.push_number(size.x as f64);
+		obj.script.push_number(size.y as f64);
+		2
+	}
+
+	unsafe extern "C" fn setAnimFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let name = obj.script.to_str(-1).unwrap_or("");
+		obj.image.animation.setCurrentAnimation(name.to_string());
+		0
+	}
+
+	pub fn initLua(&mut self, script: &mut lua::State)
+	{
+		script.create_table(0, 14);
+
+		script.push_string("setPosition"); script.push_fn(Some(Image::setPosFN)); script.set_table(-3);
+		script.push_string("translate"); script.push_fn(Some(Image::translateFN)); script.set_table(-3);
+		script.push_string("getPosition"); script.push_fn(Some(Image::getPosFN)); script.set_table(-3);
+		
+		script.push_string("setRotation"); script.push_fn(Some(Image::setRotFN)); script.set_table(-3);
+		script.push_string("rotate"); script.push_fn(Some(Image::rotateFN)); script.set_table(-3);
+		script.push_string("getRotation"); script.push_fn(Some(Image::getRotFN)); script.set_table(-3);
+
+		script.push_string("setScale"); script.push_fn(Some(Image::setScaleFN)); script.set_table(-3);
+		script.push_string("scale"); script.push_fn(Some(Image::scaleFN)); script.set_table(-3);
+		script.push_string("getScale"); script.push_fn(Some(Image::getScaleFN)); script.set_table(-3);
+
+		script.push_string("setOrigin"); script.push_fn(Some(Image::setOriginFN)); script.set_table(-3);
+		script.push_string("getOrigin"); script.push_fn(Some(Image::getOriginFN)); script.set_table(-3);
+
+		script.push_string("bounds"); script.push_fn(Some(Image::boundsFN)); script.set_table(-3);
+		script.push_string("size"); script.push_fn(Some(Image::sizeFN)); script.set_table(-3);
+		script.push_string("setAnimation"); script.push_fn(Some(Image::setAnimFN)); script.set_table(-3);
+
+		script.set_global("image");
 	}
 }
 
@@ -100,17 +265,13 @@ pub struct Object
 {
 	name: String,
 	image: Image,
-	text: super::Text::Text,
-	position: glam::Vec2,
-	angle: f32,
-	scale: glam::Vec2,
-	origin: glam::Vec2,
+	text: Text,
 	children: Vec<Object>,
 	script: lua::State,
 	init: bool,
-	model: glam::Mat4,
-	reloadModel: bool,
-	order: [char; 3]
+	order: [char; 3],
+	hasScript: bool,
+	vars: Programmable
 }
 
 impl Object
@@ -121,337 +282,50 @@ impl Object
 		{
 			name: String::new(),
 			image: Image::new(),
-			text: super::Text::Text::new(),
-			position: glam::Vec2::ZERO,
-			angle: 0.0,
-			scale: glam::Vec2::ONE,
-			origin: glam::Vec2::ZERO,
+			text: Text::new(),
 			children: vec![],
 			script: lua::State::new(),
 			init: false,
-			model: glam::Mat4::IDENTITY,
-			reloadModel: true,
-			order: ['i', 't', 'c']
+			order: ['i', 't', 'c'],
+			hasScript: false,
+			vars: std::collections::HashMap::new()
 		}
 	}
 
-	unsafe extern "C" fn setPositionFN(_: *mut std::ffi::c_void) -> i32
+	unsafe extern "C" fn setNumFN(_: *mut std::ffi::c_void) -> i32
 	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let x = obj.script.to_number(-2) as f32;
-		let y = obj.script.to_number(-1) as f32;
-		obj.position = glam::vec2(x, y);
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn setScaleFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let x = obj.script.to_number(-2) as f32;
-		let y = obj.script.to_number(-1) as f32;
-		obj.scale = glam::vec2(x, y);
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn setOriginFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let x = obj.script.to_number(-2) as f32;
-		let y = obj.script.to_number(-1) as f32;
-		obj.origin = glam::vec2(x, y);
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn setAngleFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		obj.angle = obj.script.to_number(-1) as f32;
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn translateFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let x = obj.script.to_number(-2) as f32;
-		let y = obj.script.to_number(-1) as f32;
-		obj.position += glam::vec2(x, y);
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn rotateFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		obj.angle += obj.script.to_number(-1) as f32;
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn scaleFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let x = obj.script.to_number(-2) as f32;
-		let y = obj.script.to_number(-1) as f32;
-		obj.scale *= glam::vec2(x, y);
-		obj.reloadModel = true;
-		0
-	}
-
-	unsafe extern "C" fn getPositionFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		obj.script.push_number(obj.position.x as f64);
-		obj.script.push_number(obj.position.y as f64);
-		2
-	}
-
-	unsafe extern "C" fn getScaleFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		obj.script.push_number(obj.scale.x as f64);
-		obj.script.push_number(obj.scale.y as f64);
-		2
-	}
-
-	unsafe extern "C" fn getOriginFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		obj.script.push_number(obj.origin.x as f64);
-		obj.script.push_number(obj.origin.y as f64);
-		2
-	}
-
-	unsafe extern "C" fn getAngleFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		obj.script.push_number(obj.angle as f64);
-		2
-	}
-	
-	unsafe extern "C" fn imageBoundsFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let b = obj.image.getBounds(&obj.model);
-		obj.script.push_number(b.x() as f64);
-		obj.script.push_number(b.y() as f64);
-		obj.script.push_number(b.width() as f64);
-		obj.script.push_number(b.height() as f64);
-		4
-	}
-	
-	unsafe extern "C" fn textBoundsFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI().scriptExecutor.as_mut().unwrap();
-		let b = obj.text.getBounds(&obj.model);
-		obj.script.push_number(b.x() as f64);
-		obj.script.push_number(b.y() as f64);
-		obj.script.push_number(b.width() as f64);
-		obj.script.push_number(b.height() as f64);
-		4
-	}
-
-	unsafe extern "C" fn deltaTimeFN(_: *mut std::ffi::c_void) -> i32
-	{
-		crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap()
-			.script
-			.push_number(Window::getDeltaTime() as f64);
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let name = obj.script.to_str(-2).unwrap_or("").to_string();
+		let num = obj.script.to_number(-1) as f32;
+		obj.vars.insert(name, Variable { num, string: String::new() });
 		1
 	}
 
-	unsafe extern "C" fn winSizeFN(_: *mut std::ffi::c_void) -> i32
+	unsafe extern "C" fn getNumFN(_: *mut std::ffi::c_void) -> i32
 	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		obj.script.push_number(Window::getSize().x as f64);
-		obj.script.push_number(Window::getSize().y as f64);
-		2
-	}
-
-	unsafe extern "C" fn imageSizeFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		obj.script.push_number(obj.image.animation.getFrameSize().x as f64);
-		obj.script.push_number(obj.image.animation.getFrameSize().y as f64);
-		2
-	}
-
-	unsafe extern "C" fn mousePosFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		obj.script.push_number(Window::getMousePos().x as f64);
-		obj.script.push_number(Window::getMousePos().y as f64);
-		2
-	}
-
-	unsafe extern "C" fn mousePressedFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let btn: sdl2::mouse::MouseButton;
-		{
-			btn = match obj.script.to_str(-1).unwrap_or("")
-			{
-				"Left" => { sdl2::mouse::MouseButton::Left },
-				"Right" => { sdl2::mouse::MouseButton::Right },
-				"Middle" => { sdl2::mouse::MouseButton::Middle },
-				"X1" => { sdl2::mouse::MouseButton::X1 },
-				"X2" => { sdl2::mouse::MouseButton::X2 }
-				_ => { sdl2::mouse::MouseButton::Unknown },
-			}
-		}
-		obj.script.push_bool(crate::ae3d::Window::Window::isMousePressed(btn));
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let name = obj.script.to_str(-1).unwrap_or("");
+		let num = obj.vars[name].num;
+		obj.script.push_number(num as f64);
 		1
 	}
 
-	unsafe extern "C" fn mouseJustPressedFN(_: *mut std::ffi::c_void) -> i32
+	unsafe extern "C" fn setStrFN(_: *mut std::ffi::c_void) -> i32
 	{
-		let event = crate::ae3d::Window::Window::getMouseEvent();
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		if event.is_none() { obj.script.push_bool(false); return 1; }
-		let btn: sdl2::mouse::MouseButton;
-		{
-			btn = match obj.script.to_str(-1).unwrap_or("")
-			{
-				"Left" => { sdl2::mouse::MouseButton::Left },
-				"Right" => { sdl2::mouse::MouseButton::Right },
-				"Middle" => { sdl2::mouse::MouseButton::Middle },
-				"X1" => { sdl2::mouse::MouseButton::X1 },
-				"X2" => { sdl2::mouse::MouseButton::X2 }
-				_ => { sdl2::mouse::MouseButton::Unknown },
-			}
-		}
-		obj.script.push_bool(event.unwrap().btn == btn);
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let name = obj.script.to_str(-2).unwrap_or("").to_string();
+		let string = obj.script.to_str(-1).unwrap_or("").to_string();
+		obj.vars.insert(name, Variable { num: 0.0, string });
 		1
 	}
 
-	unsafe extern "C" fn keyPressedFN(_: *mut std::ffi::c_void) -> i32
+	unsafe extern "C" fn getStrFN(_: *mut std::ffi::c_void) -> i32
 	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let name: String;
-		{
-			name = obj.script.to_str(-1).unwrap().to_string();
-		}
-		obj.script.push_bool(crate::ae3d::Window::Window::isKeyPressed(
-			sdl2::keyboard::Scancode::from_name(&name).unwrap()
-		));
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let name = obj.script.to_str(-1).unwrap_or("");
+		let string = &obj.vars[name].string;
+		obj.script.push_string(&string);
 		1
-	}
-
-	unsafe extern "C" fn keyJustPressedFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let event = crate::ae3d::Window::Window::getKeyEvent();
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		if event.is_none() { obj.script.push_bool(false); return 1; }
-		let name: String;
-		{
-			name = obj.script.to_str(-1).unwrap().to_string();
-		}
-		obj.script.push_bool(
-			event.unwrap().key == sdl2::keyboard::Scancode::from_name(&name).unwrap() &&
-			(
-				event.unwrap().action == crate::ae3d::Window::KeyAction::Pressed ||
-				event.unwrap().action == crate::ae3d::Window::KeyAction::PressedRepeat
-			)
-		);
-		1
-	}
-
-	unsafe extern "C" fn getWindowNumFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let name: String;
-		{
-			name = obj.script.to_str(-1).unwrap().to_string();
-		}
-		obj.script.push_number(crate::ae3d::Window::Window::getVariable(name).num as f64);
-		1
-	}
-
-	unsafe extern "C" fn getWindowStrFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let name: String;
-		{
-			name = obj.script.to_str(-1).unwrap().to_string();
-		}
-		obj.script.push_string(&crate::ae3d::Window::Window::getVariable(name).string);
-		1
-	}
-
-	unsafe extern "C" fn textSetStringFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let text = obj.script.to_str(-1).unwrap().to_string();
-		obj.text.setString(text);
-		0
-	}
-
-	unsafe extern "C" fn textGetStringFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		obj.script.push_string(obj.text.getString().as_str());
-		1
-	}
-
-	unsafe extern "C" fn textSizeFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let size = obj.text.getDimensions();
-		obj.script.push_number(size.x as f64);
-		obj.script.push_number(size.y as f64);
-		2
-	}
-
-	unsafe extern "C" fn imageSetFN(_: *mut std::ffi::c_void) -> i32
-	{
-		let obj = crate::ae3d::Window::Window::getUI()
-			.scriptExecutor
-			.as_mut()
-			.unwrap();
-		let anim = obj.script.to_str(-1).unwrap_or("");
-		obj.image.animation.setCurrentAnimation(anim.to_string());
-		0
 	}
 
 	pub fn parse(base: &spex::xml::Element) -> Self
@@ -462,99 +336,19 @@ impl Object
 		obj.name = base.att_opt("name").unwrap_or_else(|| { println!("Object name not found"); "" }).to_string();
 
 		obj.script.open_libs();
-		obj.script.create_table(0, 12);
-		obj.script.push_string("setPosition");
-		obj.script.push_fn(Some(Object::setPositionFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("setAngle");
-		obj.script.push_fn(Some(Object::setAngleFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("setScale");
-		obj.script.push_fn(Some(Object::setScaleFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("setOrigin");
-		obj.script.push_fn(Some(Object::setOriginFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("translate");
-		obj.script.push_fn(Some(Object::translateFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("scale");
-		obj.script.push_fn(Some(Object::scaleFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("rotate");
-		obj.script.push_fn(Some(Object::rotateFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getPosition");
-		obj.script.push_fn(Some(Object::getPositionFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getScale");
-		obj.script.push_fn(Some(Object::getScaleFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getAngle");
-		obj.script.push_fn(Some(Object::getAngleFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getOrigin");
-		obj.script.push_fn(Some(Object::getOriginFN));
-		obj.script.set_table(-3);
-		obj.script.set_global("transform");
 
-		obj.script.create_table(0, 9);
-		obj.script.push_string("dt");
-		obj.script.push_fn(Some(Object::deltaTimeFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("size");
-		obj.script.push_fn(Some(Object::winSizeFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("mousePos");
-		obj.script.push_fn(Some(Object::mousePosFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("mousePressed");
-		obj.script.push_fn(Some(Object::mousePressedFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("mouseJustPressed");
-		obj.script.push_fn(Some(Object::mouseJustPressedFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("keyPressed");
-		obj.script.push_fn(Some(Object::keyPressedFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("keyJustPressed");
-		obj.script.push_fn(Some(Object::keyJustPressedFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getNum");
-		obj.script.push_fn(Some(Object::getWindowNumFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getStr");
-		obj.script.push_fn(Some(Object::getWindowStrFN));
-		obj.script.set_table(-3);
-		obj.script.set_global("window");
-
-		// Implement all input functions
-
-		obj.script.create_table(0, 2);
-		obj.script.push_string("size");
-		obj.script.push_fn(Some(Object::imageSizeFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("bounds");
-		obj.script.push_fn(Some(Object::imageBoundsFN));
-		obj.script.set_table(-3);
-		obj.script.set_global("image");
+		obj.image.initLua(&mut obj.script);
+		obj.text.initLua(&mut obj.script);
+		Window::initLua(&mut obj.script);
 
 		obj.script.create_table(0, 4);
-		obj.script.push_string("bounds");
-		obj.script.push_fn(Some(Object::textBoundsFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("setString");
-		obj.script.push_fn(Some(Object::textSetStringFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("getString");
-		obj.script.push_fn(Some(Object::textGetStringFN));
-		obj.script.set_table(-3);
-		obj.script.push_string("size");
-		obj.script.push_fn(Some(Object::textSizeFN));
-		obj.script.set_table(-3);
-		obj.script.set_global("text");
+		obj.script.push_string("setStr"); obj.script.push_fn(Some(Object::setStrFN)); obj.script.set_table(-3);
+		obj.script.push_string("getStr"); obj.script.push_fn(Some(Object::getStrFN)); obj.script.set_table(-3);
+		obj.script.push_string("setNum"); obj.script.push_fn(Some(Object::setNumFN)); obj.script.set_table(-3);
+		obj.script.push_string("getNum"); obj.script.push_fn(Some(Object::getNumFN)); obj.script.set_table(-3);
+		obj.script.set_global("object");
 		
-		obj.script.do_file(base.att_opt("script").unwrap_or(""));
+		if !obj.script.do_file(base.att_opt("script").unwrap_or("")).is_err() { obj.hasScript = true; }
 
 		let order = base.att_opt("order").unwrap_or("itc");
 		obj.order = [
@@ -587,74 +381,81 @@ impl Object
 				);
 			}
 			if name == "object" { obj.children.push(Object::parse(node)); }
+			if name == "var"
+			{
+				let name = node.att_opt("name").unwrap_or("").to_string();
+				obj.vars.insert(name, Variable
+				{
+					num: node.att_opt("num").unwrap_or("0").parse::<f32>().unwrap(),
+					string: node.att_opt("str").unwrap_or("").to_string()
+				});
+			}
 		}
 		
 		obj
 	}
 
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader, base: &glam::Mat4)
+	fn luaError(&mut self, error: lua::ThreadStatus)
+	{
+		if error == lua::ThreadStatus::Ok { return; }
+		println!("Object: {}\n{}\n", self.name, self.script.to_str(-1).unwrap_or(""));
+	}
+
+	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
 	{
 		crate::ae3d::Window::Window::getUI().scriptExecutor = self;
-		if !self.init
+		if self.hasScript
 		{
-			self.init = true;
-			self.script.get_global("Init");
-			self.script.pcall(0, 0, 0);
+			if !self.init
+			{
+				self.init = true;
+				self.script.get_global("Init");
+				let status = self.script.pcall(0, 0, 0);
+				self.luaError(status);
+			}
+			else
+			{
+				self.script.get_global("Update");
+				let status = self.script.pcall(0, 0, 0);
+				self.luaError(status);
+			}
 		}
-		else
-		{
-			self.script.get_global("Update");
-			self.script.pcall(0, 0, 0);
-		}
-
-		if self.reloadModel { self.updateModel(base); }
 
 		let count = self.children.len();
 		match self.order[2]
 		{
-			'i' => self.image.draw(shader, &self.model),
-			't' => self.text.draw(shader, &self.model),
+			'i' => self.image.draw(shader),
+			't' => self.text.draw(shader),
 			'c' => for i in 0..self.children.len()
 			{
-				self.children[count - 1 - i].draw(shader, &self.model);
+				self.children[count - 1 - i].draw(shader);
 			}
 			_ => {}
 		}
 		match self.order[1]
 		{
-			'i' => self.image.draw(shader, &self.model),
-			't' => self.text.draw(shader, &self.model),
+			'i' => self.image.draw(shader),
+			't' => self.text.draw(shader),
 			'c' => for i in 0..self.children.len()
 			{
-				self.children[count - 1 - i].draw(shader, &self.model);
+				self.children[count - 1 - i].draw(shader);
 			}
 			_ => {}
 		}
 		match self.order[0]
 		{
-			'i' => self.image.draw(shader, &self.model),
-			't' => self.text.draw(shader, &self.model),
+			'i' => self.image.draw(shader),
+			't' => self.text.draw(shader),
 			'c' => for i in 0..self.children.len()
 			{
-				self.children[count - 1 - i].draw(shader, &self.model);
+				self.children[count - 1 - i].draw(shader);
 			}
 			_ => {}
 		}
 	}
 
 	pub fn getScript(&mut self) -> &mut lua::State { &mut self.script }
-
-	pub fn updateModel(&mut self, base: &glam::Mat4)
-	{
-		self.reloadModel = false;
-		self.model = glam::Mat4::mul_mat4(
-			&base,
-			&glam::Mat4::from_translation(glam::vec3(self.position.x, self.position.y, 0.0))
-		);
-		self.model = glam::Mat4::mul_mat4(&self.model, &glam::Mat4::from_scale(glam::vec3(self.scale.x, self.scale.y, 1.0)));
-		self.model = glam::Mat4::mul_mat4(&self.model, &glam::Mat4::from_rotation_z(self.angle.to_radians()));
-		self.model = glam::Mat4::mul_mat4(&self.model, &glam::Mat4::from_translation(-glam::vec3(self.origin.x, self.origin.y, 0.0)));
-	}
+	pub fn getText(&mut self) -> &mut Text { &mut self.text }
 }
 
 pub struct UI
@@ -732,6 +533,6 @@ impl UI
 		self.shader.activate();
 		self.shader.setMat4("view".to_string(), &self.view);
 		self.shader.setMat4("projection".to_string(), &self.projection);
-		self.root.draw(&mut self.shader, &glam::Mat4::IDENTITY);
+		self.root.draw(&mut self.shader);
 	}
 }

@@ -1,3 +1,7 @@
+use crate::ae3d::Window::Window;
+
+use super::Transformable::Transformable2D;
+
 #[derive(Clone, Debug)]
 pub struct Glyph
 {
@@ -182,7 +186,8 @@ pub struct Text
 	vbo: u32,
 	vao: u32,
 	fontSize: u8,
-	dimensions: glam::Vec2
+	dimensions: glam::Vec2,
+	ts: Transformable2D
 }
 
 impl Text
@@ -198,7 +203,8 @@ impl Text
 			vertices: 0,
 			reload: true,
 			fontSize: 48,
-			dimensions: glam::Vec2::ZERO
+			dimensions: glam::Vec2::ZERO,
+			ts: Transformable2D::new()
 		}
 	}
 
@@ -284,7 +290,7 @@ impl Text
 		self.reload = true;
 	}
 
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader, base: &glam::Mat4)
+	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
 	{
 		if self.reload { self.update(); }
 
@@ -295,7 +301,8 @@ impl Text
 			gl::ActiveTexture(gl::TEXTURE0);
 			gl::BindTexture(gl::TEXTURE_2D, self.font.page);
 			shader.setInt("tex".to_string(), 0);
-			shader.setMat4("model".to_string(), &base.to_cols_array());
+			shader.setMat4("model".to_string(), &self.ts.getMatrix().to_cols_array());
+			shader.setBool("isImage".to_string(),	false);
 
 			gl::DrawArrays(
 				gl::QUADS,
@@ -317,6 +324,12 @@ impl Text
 
 		for part in self.text.iter()
 		{
+			let clr = glam::vec4(
+				part.color.r as f32 / 255.0,
+				part.color.g as f32 / 255.0,
+				part.color.b as f32 / 255.0,
+				part.color.a as f32 / 255.0
+			);
 			for ch in part.text.chars()
 			{
 				let glyph = self.font.getGlyph(ch);
@@ -325,21 +338,25 @@ impl Text
 					pos.y + (glyph.offset.y as f32 - self.font.base as f32) * scale,
 					glyph.rect.left() / self.font.bitmapSize.x,
 					glyph.rect.top() / self.font.bitmapSize.y,
+					clr.x, clr.y, clr.z, clr.w,
 	
 					pos.x + (glyph.offset.x as f32 + glyph.rect.width() + if part.italic { italic } else { 0.0 }) * scale,
 					pos.y + (glyph.offset.y as f32 - self.font.base as f32) * scale,
 					glyph.rect.right() / self.font.bitmapSize.x,
 					glyph.rect.top() / self.font.bitmapSize.y,
+					clr.x, clr.y, clr.z, clr.w,
 	
 					pos.x + (glyph.offset.x as f32 + glyph.rect.width()) * scale,
 					pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale,
 					glyph.rect.right() / self.font.bitmapSize.x,
 					glyph.rect.bottom() / self.font.bitmapSize.y,
+					clr.x, clr.y, clr.z, clr.w,
 	
 					pos.x + (glyph.offset.x as f32) * scale,
 					pos.y + (glyph.offset.y as f32 - self.font.base as f32 * scale + glyph.rect.height()) * scale,
 					glyph.rect.left() / self.font.bitmapSize.x,
-					glyph.rect.bottom() / self.font.bitmapSize.y
+					glyph.rect.bottom() / self.font.bitmapSize.y,
+					clr.x, clr.y, clr.z, clr.w
 				]);
 
 				self.dimensions.x = self.dimensions.x.max(
@@ -371,18 +388,27 @@ impl Text
 
 			gl::BindVertexArray(self.vao);
 			gl::EnableVertexAttribArray(0);
+			gl::EnableVertexAttribArray(1);
 
 			gl::VertexAttribPointer(
 				0,
 				4,
 				gl::FLOAT,
 				gl::FALSE,
-				(4 * size_of::<f32>()) as i32,
+				(8 * size_of::<f32>()) as i32,
 				std::ptr::null()
+			);
+			gl::VertexAttribPointer(
+				1,
+				4,
+				gl::FLOAT,
+				gl::FALSE,
+				(8 * size_of::<f32>()) as i32,
+				(4 * size_of::<f32>()) as *const _
 			);
 		}
 
-		self.vertices = vertices.len() as i32 / 2;
+		self.vertices = vertices.len() as i32 / 4;
 
 		self.reload = false;
 	}
@@ -393,14 +419,14 @@ impl Text
 		self.reload = true;
 	}
 
-	pub fn getBounds(&mut self, base: &glam::Mat4) -> sdl2::rect::FRect
+	pub fn getBounds(&mut self) -> sdl2::rect::FRect
 	{
 		if self.reload { self.update(); }
 
-		let p1 = *base * glam::vec4(0.0, 0.0, 0.0, 1.0);
-		let p2 = *base * glam::vec4(self.dimensions.x, 0.0, 0.0, 1.0);
-		let p3 = *base * glam::vec4(self.dimensions.x, self.dimensions.y, 0.0, 1.0);
-		let p4 = *base * glam::vec4(0.0, self.dimensions.y, 0.0, 1.0);
+		let p1 = self.ts.getMatrix() * glam::vec4(0.0, 0.0, 0.0, 1.0);
+		let p2 = self.ts.getMatrix() * glam::vec4(self.dimensions.x, 0.0, 0.0, 1.0);
+		let p3 = self.ts.getMatrix() * glam::vec4(self.dimensions.x, self.dimensions.y, 0.0, 1.0);
+		let p4 = self.ts.getMatrix() * glam::vec4(0.0, self.dimensions.y, 0.0, 1.0);
 
 		let min = p1.min(p2).min(p3).min(p4);
 		let max = p1.max(p2).max(p3).max(p4);
@@ -424,6 +450,166 @@ impl Text
 	{
 		if self.reload { self.update(); }
 		self.dimensions
+	}
+
+	unsafe extern "C" fn setPosFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.getScript().to_number(-2) as f32;
+		let y = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.setPosition(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn translateFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.getScript().to_number(-2) as f32;
+		let y = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.translate(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn getPosFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let pos = obj.getText().ts.getPosition();
+		obj.getScript().push_number(pos.x as f64);
+		obj.getScript().push_number(pos.y as f64);
+		2
+	}
+
+	unsafe extern "C" fn setRotFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let angle = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.setRotation(angle);
+		0
+	}
+
+	unsafe extern "C" fn rotateFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let angle = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.rotate(angle);
+		0
+	}
+
+	unsafe extern "C" fn getRotFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let angle = obj.getText().ts.getRotation() as f64;
+		obj.getScript().push_number(angle);
+		1
+	}
+
+	unsafe extern "C" fn setScaleFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.getScript().to_number(-2) as f32;
+		let y = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.setScale(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn scaleFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.getScript().to_number(-2) as f32;
+		let y = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.scale(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn getScaleFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let scale = obj.getText().ts.getScale();
+		obj.getScript().push_number(scale.x as f64);
+		obj.getScript().push_number(scale.y as f64);
+		2
+	}
+
+	unsafe extern "C" fn setOriginFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let x = obj.getScript().to_number(-2) as f32;
+		let y = obj.getScript().to_number(-1) as f32;
+		obj.getText().ts.setOrigin(glam::vec2(x, y));
+		0
+	}
+
+	unsafe extern "C" fn getOriginFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let origin = obj.getText().ts.getOrigin();
+		obj.getScript().push_number(origin.x as f64);
+		obj.getScript().push_number(origin.y as f64);
+		2
+	}
+
+	unsafe extern "C" fn boundsFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let bounds = obj.getText().getBounds();
+		obj.getScript().push_number(bounds.left() as f64);
+		obj.getScript().push_number(bounds.top() as f64);
+		obj.getScript().push_number(bounds.width() as f64);
+		obj.getScript().push_number(bounds.height() as f64);
+		4
+	}
+
+	unsafe extern "C" fn sizeFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let size = obj.getText().getDimensions();
+		obj.getScript().push_number(size.x as f64);
+		obj.getScript().push_number(size.y as f64);
+		2
+	}
+
+	unsafe extern "C" fn setStringFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let text = obj.getScript().to_str(-1).unwrap_or("").to_string();
+		obj.getText().setString(text);
+		0
+	}
+
+	unsafe extern "C" fn getStringFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		let text = obj.getText().getString();
+		obj.getScript().push_string(&text);
+		1
+	}
+
+	pub fn initLua(&mut self, script: &mut lua::State)
+	{
+		script.create_table(0, 15);
+
+		script.push_string("setPosition"); script.push_fn(Some(Text::setPosFN)); script.set_table(-3);
+		script.push_string("translate"); script.push_fn(Some(Text::translateFN)); script.set_table(-3);
+		script.push_string("getPosition"); script.push_fn(Some(Text::getPosFN)); script.set_table(-3);
+		
+		script.push_string("setRotation"); script.push_fn(Some(Text::setRotFN)); script.set_table(-3);
+		script.push_string("rotate"); script.push_fn(Some(Text::rotateFN)); script.set_table(-3);
+		script.push_string("getRotation"); script.push_fn(Some(Text::getRotFN)); script.set_table(-3);
+
+		script.push_string("setScale"); script.push_fn(Some(Text::setScaleFN)); script.set_table(-3);
+		script.push_string("scale"); script.push_fn(Some(Text::scaleFN)); script.set_table(-3);
+		script.push_string("getScale"); script.push_fn(Some(Text::getScaleFN)); script.set_table(-3);
+
+		script.push_string("setOrigin"); script.push_fn(Some(Text::setOriginFN)); script.set_table(-3);
+		script.push_string("getOrigin"); script.push_fn(Some(Text::getOriginFN)); script.set_table(-3);
+
+		script.push_string("bounds"); script.push_fn(Some(Text::boundsFN)); script.set_table(-3);
+		script.push_string("size"); script.push_fn(Some(Text::sizeFN)); script.set_table(-3);
+
+		script.push_string("setString"); script.push_fn(Some(Text::setStringFN)); script.set_table(-3);
+		script.push_string("getString"); script.push_fn(Some(Text::getStringFN)); script.set_table(-3);
+
+		script.set_global("text");
 	}
 }
 

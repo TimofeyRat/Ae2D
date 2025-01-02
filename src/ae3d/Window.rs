@@ -209,9 +209,9 @@ impl Window
 
 		i.textureCreator = Some(i.tcCanvas.texture_creator());
 
-		i.ui.load("res/ui/mainMenu.xml".to_string());
-
 		Window::loadColors();
+		
+		i.ui.load("res/ui/mainMenu.xml".to_string());
 	}
 
 	pub fn loadColors()
@@ -230,10 +230,10 @@ impl Window
 			};
 			for v in color.1.entries()
 			{
-				if v.0 == "r" { c.value.r = v.1.as_u8().unwrap(); }
-				if v.0 == "g" { c.value.g = v.1.as_u8().unwrap(); }
-				if v.0 == "b" { c.value.b = v.1.as_u8().unwrap(); }
-				if v.0 == "a" { c.value.a = v.1.as_u8().unwrap(); }
+				if v.0 == "r" { c.value.r = v.1.as_u8().unwrap_or(0); }
+				if v.0 == "g" { c.value.g = v.1.as_u8().unwrap_or(0); }
+				if v.0 == "b" { c.value.b = v.1.as_u8().unwrap_or(0); }
+				if v.0 == "a" { c.value.a = v.1.as_u8().unwrap_or(255); }
 			}
 			palette.push(c);
 		}
@@ -424,5 +424,56 @@ impl Window
 	pub fn getVariable(name: String) -> super::Programmable::Variable
 	{
 		Window::getInstance().vars[&name].clone()
+	}
+
+	unsafe extern "C" fn sizeFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		script.push_number(Window::getSize().x as f64);
+		script.push_number(Window::getSize().y as f64);
+		2
+	}
+
+	unsafe extern "C" fn dtFN(_: *mut std::ffi::c_void) -> i32
+	{
+		Window::getUI().scriptExecutor.as_mut().unwrap().getScript().push_number(Window::getDeltaTime() as f64);
+		1
+	}
+
+	unsafe extern "C" fn getNumFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let var = Window::getVariable(script.to_str(-1).unwrap_or("").to_string());
+		script.push_number(var.num as f64);
+		1
+	}
+
+	unsafe extern "C" fn getStrFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let var = Window::getVariable(script.to_str(-1).unwrap_or("").to_string());
+		script.push_string(&var.string);
+		1
+	}
+
+	unsafe extern "C" fn mousePosFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		script.push_number(Window::getMousePos().x as f64);
+		script.push_number(Window::getMousePos().y as f64);
+		2
+	}
+
+	pub fn initLua(script: &mut lua::State)
+	{
+		script.create_table(0, 5);
+
+		script.push_string("size"); script.push_fn(Some(Window::sizeFN)); script.set_table(-3);
+		script.push_string("dt"); script.push_fn(Some(Window::dtFN)); script.set_table(-3);
+		script.push_string("getNum"); script.push_fn(Some(Window::getNumFN)); script.set_table(-3);
+		script.push_string("getStr"); script.push_fn(Some(Window::getStrFN)); script.set_table(-3);
+		script.push_string("mousePos"); script.push_fn(Some(Window::mousePosFN)); script.set_table(-3);
+
+		script.set_global("window");
 	}
 }

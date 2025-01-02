@@ -27,9 +27,9 @@ impl Transformable2D
 	{
 		self.model =
 			glam::Mat4::from_translation(glam::vec3(self.position.x, self.position.y, 0.0))
-			.mul_mat4(&glam::Mat4::from_rotation_z(self.rotation))
-			.mul_mat4(&glam::Mat4::from_translation(-glam::vec3(self.origin.x, self.origin.y, 0.0)))
-			.mul_mat4(&glam::Mat4::from_scale(glam::vec3(self.scale.x, self.scale.y, 1.0)));
+			.mul_mat4(&glam::Mat4::from_rotation_z(self.rotation.to_radians()))
+			.mul_mat4(&glam::Mat4::from_scale(glam::vec3(self.scale.x, self.scale.y, 1.0)))
+			.mul_mat4(&glam::Mat4::from_translation(-glam::vec3(self.origin.x, self.origin.y, 0.0)));
 	}
 
 	pub fn getMatrix(&mut self) -> glam::Mat4
@@ -38,4 +38,19 @@ impl Transformable2D
 
 		self.model
 	}
+
+	pub fn setPosition(&mut self, pos: glam::Vec2) { self.position = pos; self.reloadModel = true; }
+	pub fn translate(&mut self, delta: glam::Vec2) { self.position += delta; self.reloadModel = true; }
+	pub fn getPosition(&mut self) -> glam::Vec2 { self.position }
+
+	pub fn setRotation(&mut self, angle: f32) { self.rotation = angle; self.reloadModel = true; }
+	pub fn rotate(&mut self, delta: f32) { self.rotation += delta; self.reloadModel = true; }
+	pub fn getRotation(&mut self) -> f32{ self.rotation }
+
+	pub fn setScale(&mut self, scale: glam::Vec2) { self.scale = scale; self.reloadModel = true; }
+	pub fn scale(&mut self, delta: glam::Vec2) { self.scale *= delta; self.reloadModel = true; }
+	pub fn getScale(&mut self) -> glam::Vec2 { self.scale }
+
+	pub fn setOrigin(&mut self, origin: glam::Vec2) { self.origin = origin; self.reloadModel = true; }
+	pub fn getOrigin(&mut self) -> glam::Vec2 { self.origin }
 }
