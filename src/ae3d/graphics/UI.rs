@@ -261,6 +261,19 @@ impl Image
 	}
 }
 
+impl Drop for Image
+{
+	fn drop(&mut self)
+	{
+		if self.vao == 0 && self.vbo == 0 { return; }
+		unsafe
+		{
+			gl::DeleteVertexArrays(1, &mut self.vao);
+			gl::DeleteBuffers(1, &mut self.vbo);
+		}
+	}
+}
+
 pub struct Object
 {
 	name: String,
@@ -305,7 +318,7 @@ impl Object
 	{
 		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
 		let name = obj.script.to_str(-1).unwrap_or("");
-		let num = obj.vars[name].num;
+		let num = obj.vars.get(&name.to_string()).unwrap_or(&Variable::new()).num;
 		obj.script.push_number(num as f64);
 		1
 	}
@@ -323,8 +336,16 @@ impl Object
 	{
 		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
 		let name = obj.script.to_str(-1).unwrap_or("");
-		let string = &obj.vars[name].string;
+		let def = Variable::new();
+		let string = &obj.vars.get(&name.to_string()).unwrap_or(&def).string;
 		obj.script.push_string(&string);
+		1
+	}
+
+	unsafe extern "C" fn nameFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let obj = Window::getUI().scriptExecutor.as_mut().unwrap();
+		obj.script.push_string(&obj.name);
 		1
 	}
 
@@ -335,20 +356,27 @@ impl Object
 
 		obj.name = base.att_opt("name").unwrap_or_else(|| { println!("Object name not found"); "" }).to_string();
 
-		obj.script.open_libs();
-
-		obj.image.initLua(&mut obj.script);
-		obj.text.initLua(&mut obj.script);
-		Window::initLua(&mut obj.script);
-
-		obj.script.create_table(0, 4);
-		obj.script.push_string("setStr"); obj.script.push_fn(Some(Object::setStrFN)); obj.script.set_table(-3);
-		obj.script.push_string("getStr"); obj.script.push_fn(Some(Object::getStrFN)); obj.script.set_table(-3);
-		obj.script.push_string("setNum"); obj.script.push_fn(Some(Object::setNumFN)); obj.script.set_table(-3);
-		obj.script.push_string("getNum"); obj.script.push_fn(Some(Object::getNumFN)); obj.script.set_table(-3);
-		obj.script.set_global("object");
-		
-		if !obj.script.do_file(base.att_opt("script").unwrap_or("")).is_err() { obj.hasScript = true; }
+		let script = base.att_opt("script").unwrap_or("").to_string();
+		if !script.is_empty()
+		{
+			obj.script.open_libs();
+	
+			obj.image.initLua(&mut obj.script);
+			obj.text.initLua(&mut obj.script);
+			Window::initLua(&mut obj.script);
+			Window::getUI().initLua(&mut obj.script);
+	
+			obj.script.create_table(0, 4);
+			obj.script.push_string("setStr"); obj.script.push_fn(Some(Object::setStrFN)); obj.script.set_table(-3);
+			obj.script.push_string("getStr"); obj.script.push_fn(Some(Object::getStrFN)); obj.script.set_table(-3);
+			obj.script.push_string("setNum"); obj.script.push_fn(Some(Object::setNumFN)); obj.script.set_table(-3);
+			obj.script.push_string("getNum"); obj.script.push_fn(Some(Object::getNumFN)); obj.script.set_table(-3);
+			obj.script.push_string("name"); obj.script.push_fn(Some(Object::nameFN)); obj.script.set_table(-3);
+			obj.script.set_global("object");
+			
+			obj.script.do_file(&script);
+			obj.hasScript = true;
+		}
 
 		let order = base.att_opt("order").unwrap_or("itc");
 		obj.order = [
@@ -457,18 +485,14 @@ impl Object
 	pub fn getScript(&mut self) -> &mut lua::State { &mut self.script }
 	pub fn getText(&mut self) -> &mut Text { &mut self.text }
 }
-
 pub struct UI
 {
 	root: Object,
 	shader: super::Shader::Shader,
 	projection: [f32; 16],
-	view: [f32; 16],
-	position: glam::Vec2,
-	angle: f32,
-	scale: glam::Vec2,
-	reloadView: bool,
-	pub scriptExecutor: *mut Object
+	pub scriptExecutor: *mut Object,
+	view: Transformable2D,
+	loadPath: String
 }
 
 impl UI
@@ -481,11 +505,8 @@ impl UI
 			shader: super::Shader::Shader::new(),
 			projection: glam::Mat4::IDENTITY.to_cols_array(),
 			scriptExecutor: std::ptr::null::<Object>() as *mut Object,
-			view: glam::Mat4::IDENTITY.to_cols_array(),
-			position: glam::Vec2::ZERO,
-			angle: 0.0,
-			scale: glam::Vec2::ONE,
-			reloadView: true
+			view: Transformable2D::new(),
+			loadPath: String::new()
 		}
 	}
 
@@ -515,24 +536,47 @@ impl UI
 		if src.is_none() { return; }
 
 		self.root = Object::parse(&src.unwrap());
+		self.view = Transformable2D::new();
+		self.scriptExecutor = std::ptr::null::<Object>() as *mut Object;
 
-		self.shader.load("res/shaders/ui.vert".to_string(), "res/shaders/ui.frag".to_string());
-	}
-
-	fn updateView(&mut self)
-	{
-		let mut matrix = glam::Mat4::from_translation(glam::vec3(self.position.x, self.position.y, 0.0));
-		matrix = glam::Mat4::mul_mat4(&matrix, &glam::Mat4::from_scale(glam::vec3(self.scale.x, self.scale.y, 1.0)));
-		matrix = glam::Mat4::mul_mat4(&matrix, &glam::Mat4::from_rotation_z(self.angle.to_radians()));
-		self.view = matrix.to_cols_array();
-		self.reloadView = false;
+		if !self.shader.isLoaded()
+		{
+			self.shader.load("res/shaders/ui.vert".to_string(), "res/shaders/ui.frag".to_string());
+		}
 	}
 
 	pub fn draw(&mut self)
 	{
+		if !self.loadPath.is_empty()
+		{
+			self.load(self.loadPath.clone());
+			self.loadPath.clear();
+		}
 		self.shader.activate();
-		self.shader.setMat4("view".to_string(), &self.view);
+		self.shader.setMat4("view".to_string(), &self.view.getMatrix().to_cols_array());
 		self.shader.setMat4("projection".to_string(), &self.projection);
 		self.root.draw(&mut self.shader);
+	}
+
+	fn requestReload(&mut self, path: String)
+	{
+		self.loadPath = path;
+	}
+
+	unsafe extern "C" fn loadFileFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let ui = Window::getUI();
+		let path = ui.scriptExecutor.as_mut().unwrap().getScript().to_str(-1).unwrap_or("");
+		ui.requestReload(path.to_string());
+		0
+	}
+
+	pub fn initLua(&mut self, script: &mut lua::State)
+	{
+		script.create_table(0, 1);
+
+		script.push_string("loadFile"); script.push_fn(Some(UI::loadFileFN)); script.set_table(-3);
+
+		script.set_global("ui");
 	}
 }

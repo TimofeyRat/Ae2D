@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Transformable2D
 {
 	position: glam::Vec2,

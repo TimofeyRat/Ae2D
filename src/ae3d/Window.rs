@@ -464,15 +464,78 @@ impl Window
 		2
 	}
 
+	unsafe extern "C" fn mousePressedFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let btn = match script.to_str(-1).unwrap_or("")
+		{
+			"Left" => sdl2::mouse::MouseButton::Left,
+			"Right" => sdl2::mouse::MouseButton::Right,
+			"Middle" => sdl2::mouse::MouseButton::Middle,
+			"X1" => sdl2::mouse::MouseButton::X1,
+			"X2" => sdl2::mouse::MouseButton::X2,
+			_ => sdl2::mouse::MouseButton::Unknown
+		};
+		script.push_bool(Window::isMousePressed(btn));
+		1
+	}
+
+	unsafe extern "C" fn mouseJustPressedFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		if Window::getMouseEvent().is_none() { script.push_bool(false); return 1; }
+		let btn = match script.to_str(-1).unwrap_or("")
+		{
+			"Left" => sdl2::mouse::MouseButton::Left,
+			"Right" => sdl2::mouse::MouseButton::Right,
+			"Middle" => sdl2::mouse::MouseButton::Middle,
+			"X1" => sdl2::mouse::MouseButton::X1,
+			"X2" => sdl2::mouse::MouseButton::X2,
+			_ => sdl2::mouse::MouseButton::Unknown
+		};
+		let e = Window::getMouseEvent().unwrap();
+		script.push_bool(e.btn == btn && e.clicks > 0);
+		1
+	}
+
+	unsafe extern "C" fn keyPressedFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let scancode = sdl2::keyboard::Scancode::from_name(script.to_str(-1)
+			.unwrap_or(""))
+			.unwrap_or(sdl2::keyboard::Scancode::SysReq);
+		script.push_bool(Window::isKeyPressed(scancode));
+		1
+	}
+
+	unsafe extern "C" fn keyJustPressedFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		if Window::getKeyEvent().is_none() { script.push_bool(false); return 1; }
+		let scancode = sdl2::keyboard::Scancode::from_name(script.to_str(-1)
+			.unwrap_or(""))
+			.unwrap_or(sdl2::keyboard::Scancode::SysReq);
+		let e = Window::getKeyEvent().unwrap();
+		script.push_bool(e.key == scancode && (e.action == KeyAction::Pressed || e.action == KeyAction::PressedRepeat));
+		1
+	}
+
+	unsafe extern "C" fn closeFN(_: *mut std::ffi::c_void) -> i32 { Window::close(); 0 }
+
 	pub fn initLua(script: &mut lua::State)
 	{
-		script.create_table(0, 5);
+		script.create_table(0, 10);
 
 		script.push_string("size"); script.push_fn(Some(Window::sizeFN)); script.set_table(-3);
 		script.push_string("dt"); script.push_fn(Some(Window::dtFN)); script.set_table(-3);
 		script.push_string("getNum"); script.push_fn(Some(Window::getNumFN)); script.set_table(-3);
 		script.push_string("getStr"); script.push_fn(Some(Window::getStrFN)); script.set_table(-3);
 		script.push_string("mousePos"); script.push_fn(Some(Window::mousePosFN)); script.set_table(-3);
+		script.push_string("mousePressed"); script.push_fn(Some(Window::mousePressedFN)); script.set_table(-3);
+		script.push_string("mouseJustPressed"); script.push_fn(Some(Window::mouseJustPressedFN)); script.set_table(-3);
+		script.push_string("close"); script.push_fn(Some(Window::closeFN)); script.set_table(-3);
+		script.push_string("keyPressed"); script.push_fn(Some(Window::keyPressedFN)); script.set_table(-3);
+		script.push_string("keyJustPressed"); script.push_fn(Some(Window::keyJustPressedFN)); script.set_table(-3);
 
 		script.set_global("window");
 	}

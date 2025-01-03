@@ -10,6 +10,7 @@ pub struct Glyph
 	pub advance: u8,
 }
 
+#[derive(Debug)]
 pub struct Font
 {
 	page: u32,
@@ -151,17 +152,6 @@ impl Font
 	}
 }
 
-impl Drop for Font
-{
-	fn drop(&mut self)
-	{
-		unsafe
-		{
-			gl::DeleteTextures(1, &self.page);
-		}
-	}
-}
-
 #[derive(PartialEq)]
 pub enum Anchor { Left, Center, Right, Bottom, Top }
 
@@ -177,6 +167,7 @@ struct StyledText
 	pub color: sdl2::pixels::Color
 }
 
+#[derive(Debug)]
 pub struct Text
 {
 	font: Font,
@@ -188,6 +179,19 @@ pub struct Text
 	fontSize: u8,
 	dimensions: glam::Vec2,
 	ts: Transformable2D
+}
+
+impl Drop for Text
+{
+	fn drop(&mut self)
+	{
+		if self.vao == 0 && self.vbo == 0 { return; }
+		unsafe
+		{
+			gl::DeleteVertexArrays(1, &mut self.vao);
+			gl::DeleteBuffers(1, &mut self.vbo);
+		}
+	}
 }
 
 impl Text
@@ -309,6 +313,10 @@ impl Text
 				0,
 				self.vertices
 			);
+
+			gl::BindTexture(gl::TEXTURE_2D, 0);
+			gl::BindVertexArray(0);
+			gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 		}
 	}
 
@@ -375,7 +383,7 @@ impl Text
 				pos.y += self.font.height as f32;
 			}
 		}
-
+		
 		unsafe
 		{
 			gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
@@ -610,17 +618,5 @@ impl Text
 		script.push_string("getString"); script.push_fn(Some(Text::getStringFN)); script.set_table(-3);
 
 		script.set_global("text");
-	}
-}
-
-impl Drop for Text
-{
-	fn drop(&mut self)
-	{
-		unsafe
-		{
-			gl::DeleteBuffers(1, &self.vbo);
-			gl::DeleteVertexArrays(1, &self.vao);
-		}
 	}
 }
