@@ -144,6 +144,21 @@ impl Shader
 		}
 	}
 
+	pub fn setVec4(&mut self, name: String, value: [f32; 3])
+	{
+		let cn = std::ffi::CString::new(name).unwrap();
+		unsafe
+		{
+			gl::Uniform4f(
+				gl::GetUniformLocation(self.program, cn.as_ptr()),
+				*value.get(0).unwrap(),
+				*value.get(1).unwrap(),
+				*value.get(2).unwrap(),
+				*value.get(3).unwrap()
+			);
+		}
+	}
+
 	pub fn setBool(&mut self, name: String, value: bool)
 	{
 		let cn = std::ffi::CString::new(name).unwrap();

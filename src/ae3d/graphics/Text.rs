@@ -164,7 +164,7 @@ struct StyledText
 	pub underlined: bool,
 	pub strikethrough: bool,
 	pub newline: bool,
-	pub color: sdl2::pixels::Color
+	pub color: sdl2::pixels::Color,
 }
 
 #[derive(Debug)]
@@ -235,7 +235,7 @@ impl Text
 			underlined: false,
 			strikethrough: false,
 			newline: false,
-			color: sdl2::pixels::Color::WHITE
+			color: sdl2::pixels::Color::WHITE,
 		};
 
 		self.text.clear();
@@ -259,7 +259,7 @@ impl Text
 						underlined: false,
 						strikethrough: false,
 						newline: false,
-						color: sdl2::pixels::Color::WHITE
+						color: sdl2::pixels::Color::WHITE,
 					};
 				}
 				let mut raw = String::new();
@@ -304,6 +304,7 @@ impl Text
 			
 			gl::ActiveTexture(gl::TEXTURE0);
 			gl::BindTexture(gl::TEXTURE_2D, self.font.page);
+			shader.activate();
 			shader.setInt("tex".to_string(), 0);
 			shader.setMat4("model".to_string(), &self.ts.getMatrix().to_cols_array());
 			gl::DrawArrays(

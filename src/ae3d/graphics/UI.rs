@@ -82,6 +82,7 @@ impl Image
 			self.color.x, self.color.y, self.color.z, self.color.w
 		];
 
+		shader.activate();
 		shader.setInt("tex".to_string(), 0);
 		shader.setMat4("model".to_string(), &self.ts.getMatrix().to_cols_array());
 		unsafe
@@ -428,7 +429,7 @@ impl Object
 		println!("Object: {}\n{}\n", self.name, self.script.to_str(-1).unwrap_or(""));
 	}
 
-	pub fn draw(&mut self, shader: &mut super::Shader::Shader)
+	pub fn draw(&mut self, imgShader: &mut super::Shader::Shader, txtShader: &mut super::Shader::Shader)
 	{
 		crate::ae3d::Window::Window::getUI().scriptExecutor = self;
 		if self.hasScript
@@ -451,31 +452,31 @@ impl Object
 		let count = self.children.len();
 		match self.order[2]
 		{
-			'i' => self.image.draw(shader),
-			't' => self.text.draw(shader),
+			'i' => self.image.draw(imgShader),
+			't' => self.text.draw(txtShader),
 			'c' => for i in 0..self.children.len()
 			{
-				self.children[count - 1 - i].draw(shader);
+				self.children[count - 1 - i].draw(imgShader, txtShader);
 			}
 			_ => {}
 		}
 		match self.order[1]
 		{
-			'i' => self.image.draw(shader),
-			't' => self.text.draw(shader),
+			'i' => self.image.draw(imgShader),
+			't' => self.text.draw(txtShader),
 			'c' => for i in 0..self.children.len()
 			{
-				self.children[count - 1 - i].draw(shader);
+				self.children[count - 1 - i].draw(imgShader, txtShader);
 			}
 			_ => {}
 		}
 		match self.order[0]
 		{
-			'i' => self.image.draw(shader),
-			't' => self.text.draw(shader),
+			'i' => self.image.draw(imgShader),
+			't' => self.text.draw(txtShader),
 			'c' => for i in 0..self.children.len()
 			{
-				self.children[count - 1 - i].draw(shader);
+				self.children[count - 1 - i].draw(imgShader, txtShader);
 			}
 			_ => {}
 		}
@@ -487,7 +488,8 @@ impl Object
 pub struct UI
 {
 	root: Object,
-	shader: super::Shader::Shader,
+	imgShader: super::Shader::Shader,
+	txtShader: super::Shader::Shader,
 	projection: [f32; 16],
 	pub scriptExecutor: *mut Object,
 	view: Transformable2D,
@@ -501,7 +503,8 @@ impl UI
 		Self
 		{
 			root: Object::new(),
-			shader: super::Shader::Shader::new(),
+			imgShader: super::Shader::Shader::new(),
+			txtShader: super::Shader::Shader::new(),
 			projection: glam::Mat4::IDENTITY.to_cols_array(),
 			scriptExecutor: std::ptr::null::<Object>() as *mut Object,
 			view: Transformable2D::new(),
@@ -538,9 +541,13 @@ impl UI
 		self.view = Transformable2D::new();
 		self.scriptExecutor = std::ptr::null::<Object>() as *mut Object;
 
-		if !self.shader.isLoaded()
+		if !self.imgShader.isLoaded()
 		{
-			self.shader.load("res/shaders/ui.vert".to_string(), "res/shaders/ui.frag".to_string());
+			self.imgShader.load("res/shaders/image.vert".to_string(), "res/shaders/image.frag".to_string());
+		}
+		if !self.txtShader.isLoaded()
+		{
+			self.txtShader.load("res/shaders/text.vert".to_string(), "res/shaders/text.frag".to_string());
 		}
 	}
 
@@ -551,10 +558,13 @@ impl UI
 			self.load(self.loadPath.clone());
 			self.loadPath.clear();
 		}
-		self.shader.activate();
-		self.shader.setMat4("view".to_string(), &self.view.getMatrix().to_cols_array());
-		self.shader.setMat4("projection".to_string(), &self.projection);
-		self.root.draw(&mut self.shader);
+		self.imgShader.activate();
+		self.imgShader.setMat4("view".to_string(), &self.view.getMatrix().to_cols_array());
+		self.imgShader.setMat4("projection".to_string(), &self.projection);
+		self.txtShader.activate();
+		self.txtShader.setMat4("view".to_string(), &self.view.getMatrix().to_cols_array());
+		self.txtShader.setMat4("projection".to_string(), &self.projection);
+		self.root.draw(&mut self.imgShader, &mut self.txtShader);
 	}
 
 	fn requestReload(&mut self, path: String)
