@@ -84,7 +84,6 @@ impl Image
 
 		shader.setInt("tex".to_string(), 0);
 		shader.setMat4("model".to_string(), &self.ts.getMatrix().to_cols_array());
-		shader.setBool("isImage".to_string(),	true);
 		unsafe
 		{
 			gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);

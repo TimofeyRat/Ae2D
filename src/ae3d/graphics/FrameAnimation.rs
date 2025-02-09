@@ -109,6 +109,7 @@ impl Animator
 		let src = crate::ae3d::Assets::readJSON(path);
 		if src.is_none() { return; }
 
+		
 		for data in src.unwrap().entries()
 		{
 			if data.0 == "texture"
@@ -196,6 +197,8 @@ impl Animator
 
 	pub fn getCurrentFrame(&mut self) -> sdl2::rect::FRect
 	{
+		if self.frames.len() == 0 { return sdl2::rect::FRect::new(0.0 ,0.0, 0.0, 0.0); }
+		if self.animations.len() == 0 { return sdl2::rect::FRect::new(0.0, 0.0, 0.0, 0.0); }
 		self.frames[self.animations[self.currentAnimation].getCurrentFrame() as usize]
 	}
 

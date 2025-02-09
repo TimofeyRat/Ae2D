@@ -10,6 +10,7 @@ fn main()
 
 	println!("{}", Window::getGL());
 
+	Window::resetDT();
 	while Window::isOpen()
 	{
 		Window::update();

@@ -306,8 +306,6 @@ impl Text
 			gl::BindTexture(gl::TEXTURE_2D, self.font.page);
 			shader.setInt("tex".to_string(), 0);
 			shader.setMat4("model".to_string(), &self.ts.getMatrix().to_cols_array());
-			shader.setBool("isImage".to_string(),	false);
-
 			gl::DrawArrays(
 				gl::QUADS,
 				0,

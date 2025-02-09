@@ -61,7 +61,9 @@ pub struct Window
 	lockCursor: bool,
 	mouseDelta: glam::Vec2,
 	ui: super::graphics::UI::UI,
-	vars: super::Programmable::Programmable
+	vars: super::Programmable::Programmable,
+	minDeltaTime: f32,
+	maxDeltaTime: f32,
 }
 
 impl Window
@@ -91,7 +93,9 @@ impl Window
 			lockCursor: false,
 			mouseDelta: glam::Vec2::ZERO,
 			ui: super::graphics::UI::UI::new(),
-			vars: std::collections::HashMap::new()
+			vars: std::collections::HashMap::new(),
+			minDeltaTime: 0.001,
+			maxDeltaTime: 1.0
 		}
 	}
 
@@ -118,6 +122,8 @@ impl Window
 		let mut hideCursor = false;
 		let mut lockCursor = false;
 		let mut vsync = true;
+		let mut minDeltaTime = 0.001;
+		let mut maxDeltaTime = 1.0;
 		
 		let i = Window::getInstance();
 
@@ -154,6 +160,8 @@ impl Window
 					if attr.0 == "hideCursor" { hideCursor = attr.1.as_bool().unwrap_or(false); }
 					if attr.0 == "lockCursor" { lockCursor = attr.1.as_bool().unwrap_or(false); }
 					if attr.0 == "vsync" { vsync = attr.1.as_bool().unwrap_or(true); }
+					if attr.0 == "minDeltaTime" { minDeltaTime = attr.1.as_f32().unwrap_or(0.001); }
+					if attr.0 == "maxDeltaTime" { maxDeltaTime = attr.1.as_f32().unwrap_or(1.0); }
 				}
 			}
 			if section.0 == "custom"
@@ -173,6 +181,8 @@ impl Window
 			}
 		}
 
+		i.minDeltaTime = minDeltaTime;
+		i.maxDeltaTime = maxDeltaTime;
 
 		let attr = i.video.gl_attr();
 		attr.set_context_profile(sdl2::video::GLProfile::Core);
@@ -246,7 +256,7 @@ impl Window
 		i.mouseEvent = None;
 		i.mouseDelta = glam::Vec2::ZERO;
 
-		i.deltaTime = i.lastTime.elapsed().as_secs_f32();
+		i.deltaTime = f32::clamp(i.lastTime.elapsed().as_secs_f32(), i.minDeltaTime, i.maxDeltaTime);
 		i.lastTime = std::time::Instant::now();
 
 		for event in i.events.poll_iter()
@@ -424,6 +434,11 @@ impl Window
 	pub fn getVariable(name: String) -> super::Programmable::Variable
 	{
 		Window::getInstance().vars[&name].clone()
+	}
+
+	pub fn resetDT()
+	{
+		Window::getInstance().lastTime = std::time::Instant::now();
 	}
 
 	unsafe extern "C" fn sizeFN(_: *mut std::ffi::c_void) -> i32
