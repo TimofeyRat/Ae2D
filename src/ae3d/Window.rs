@@ -445,6 +445,11 @@ impl Window
 		Window::getInstance().lastTime = std::time::Instant::now();
 	}
 
+	pub fn setLockCursor(lock: bool)
+	{
+		Window::getInstance().lockCursor = lock;
+	}
+
 	unsafe extern "C" fn sizeFN(_: *mut std::ffi::c_void) -> i32
 	{
 		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
@@ -480,7 +485,6 @@ impl Window
 		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
 		let name = script.to_str(-2).unwrap_or("").to_string();
 		let value = script.to_number(-2) as f32;
-		println!("Setting {name} to {value}");
 		Window::getInstance().vars.insert(name, super::Programmable::Variable { num: value, string: String::new() });
 		0
 	}
