@@ -433,7 +433,11 @@ impl Window
 
 	pub fn getVariable(name: String) -> super::Programmable::Variable
 	{
-		Window::getInstance().vars[&name].clone()
+		Window::getInstance().vars
+			.get(&name)
+			.unwrap_or(
+				&super::Programmable::Variable { num: 0.0, string: String::new() }
+			).clone()
 	}
 
 	pub fn resetDT()
@@ -469,6 +473,25 @@ impl Window
 		let var = Window::getVariable(script.to_str(-1).unwrap_or("").to_string());
 		script.push_string(&var.string);
 		1
+	}
+
+	unsafe extern "C" fn setNumFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let name = script.to_str(-2).unwrap_or("").to_string();
+		let value = script.to_number(-2) as f32;
+		println!("Setting {name} to {value}");
+		Window::getInstance().vars.insert(name, super::Programmable::Variable { num: value, string: String::new() });
+		0
+	}
+
+	unsafe extern "C" fn setStrFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let name = script.to_str(-2).unwrap_or("").to_string();
+		let value = script.to_str(-2).unwrap_or("").to_string();
+		Window::getInstance().vars.insert(name, super::Programmable::Variable { num: 0.0, string: value });
+		0
 	}
 
 	unsafe extern "C" fn mousePosFN(_: *mut std::ffi::c_void) -> i32
@@ -537,20 +560,31 @@ impl Window
 
 	unsafe extern "C" fn closeFN(_: *mut std::ffi::c_void) -> i32 { Window::close(); 0 }
 
+	unsafe extern "C" fn executeFN(_: *mut std::ffi::c_void) -> i32
+	{
+		let script = Window::getUI().scriptExecutor.as_mut().unwrap().getScript();
+		let code = script.to_str(-1).unwrap_or("").to_string();
+		script.do_string(code.as_str());
+		0
+	}
+
 	pub fn initLua(script: &mut lua::State)
 	{
-		script.create_table(0, 10);
+		script.create_table(0, 13);
 
 		script.push_string("size"); script.push_fn(Some(Window::sizeFN)); script.set_table(-3);
 		script.push_string("dt"); script.push_fn(Some(Window::dtFN)); script.set_table(-3);
 		script.push_string("getNum"); script.push_fn(Some(Window::getNumFN)); script.set_table(-3);
 		script.push_string("getStr"); script.push_fn(Some(Window::getStrFN)); script.set_table(-3);
+		script.push_string("setNum"); script.push_fn(Some(Window::setNumFN)); script.set_table(-3);
+		script.push_string("setStr"); script.push_fn(Some(Window::setStrFN)); script.set_table(-3);
 		script.push_string("mousePos"); script.push_fn(Some(Window::mousePosFN)); script.set_table(-3);
 		script.push_string("mousePressed"); script.push_fn(Some(Window::mousePressedFN)); script.set_table(-3);
 		script.push_string("mouseJustPressed"); script.push_fn(Some(Window::mouseJustPressedFN)); script.set_table(-3);
 		script.push_string("close"); script.push_fn(Some(Window::closeFN)); script.set_table(-3);
 		script.push_string("keyPressed"); script.push_fn(Some(Window::keyPressedFN)); script.set_table(-3);
 		script.push_string("keyJustPressed"); script.push_fn(Some(Window::keyJustPressedFN)); script.set_table(-3);
+		script.push_string("execute"); script.push_fn(Some(Window::executeFN)); script.set_table(-3);
 
 		script.set_global("window");
 	}

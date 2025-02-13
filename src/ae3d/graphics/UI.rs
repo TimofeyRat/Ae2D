@@ -311,7 +311,7 @@ impl Object
 		let name = obj.script.to_str(-2).unwrap_or("").to_string();
 		let num = obj.script.to_number(-1) as f32;
 		obj.vars.insert(name, Variable { num, string: String::new() });
-		1
+		0
 	}
 
 	unsafe extern "C" fn getNumFN(_: *mut std::ffi::c_void) -> i32
@@ -329,7 +329,7 @@ impl Object
 		let name = obj.script.to_str(-2).unwrap_or("").to_string();
 		let string = obj.script.to_str(-1).unwrap_or("").to_string();
 		obj.vars.insert(name, Variable { num: 0.0, string });
-		1
+		0
 	}
 
 	unsafe extern "C" fn getStrFN(_: *mut std::ffi::c_void) -> i32
